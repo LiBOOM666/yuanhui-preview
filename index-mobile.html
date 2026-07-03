@@ -1,0 +1,3288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>智能园徽</title>
+  <script src="tailwindcss.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+    }
+    .btn-press {
+      transition: opacity 0.15s, transform 0.15s;
+    }
+    .btn-press:active {
+      opacity: 0.75;
+      transform: scale(0.97);
+    }
+
+    /* 页面切换 */
+    .page {
+      display: none;
+      min-height: 100vh;
+    }
+    .page.active {
+      display: block;
+    }
+
+    /* 抽屉 */
+    .drawer-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .drawer-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .drawer-panel {
+      background: white;
+      border-radius: 1rem 1rem 0 0;
+      padding: 1rem 1rem 2rem 1rem;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+      position: relative;
+      z-index: 1;
+    }
+    .drawer-overlay.show .drawer-panel {
+      transform: translateY(0);
+    }
+
+    /* 弹窗 */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 1.5rem;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .modal-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal-box {
+      background: white;
+      width: 100%;
+      max-width: 24rem;
+      border-radius: 1rem;
+      overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+      transform: scale(0.92) translateY(8px);
+      transition: transform 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+      position: relative;
+      z-index: 1;
+    }
+    .modal-overlay.show .modal-box {
+      transform: scale(1) translateY(0);
+    }
+
+    /* 班级选项 */
+    .class-option {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem;
+      border-radius: 0.75rem;
+      border: 1.5px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-bottom: 0.5rem;
+    }
+    .class-option:last-child {
+      margin-bottom: 0;
+    }
+    .class-option.selected {
+      background-color: #eff6ff;
+      border-color: #3b82f6;
+    }
+    .class-option .check-icon {
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .class-option.selected .check-icon {
+      opacity: 1;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      z-index: 70;
+      background: rgba(17,24,39,0.92);
+      color: white;
+      padding: 0.875rem 1.25rem;
+      border-radius: 1rem;
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      max-width: 280px;
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.92);
+      transition: all 0.3s ease;
+      pointer-events: none;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    /* 折叠卡片 */
+    .accordion-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.35s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.25s ease;
+      opacity: 0;
+    }
+    .accordion-body.open {
+      opacity: 1;
+    }
+    .accordion-arrow {
+      transition: transform 0.3s ease;
+    }
+    .accordion-arrow.rotate {
+      transform: rotate(180deg);
+    }
+
+    /* 隐藏滚动条 */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* 多选标签 */
+    .multi-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      border: 1.5px solid #e5e7eb;
+      background: white;
+      color: #4b5563;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      user-select: none;
+    }
+    .multi-tag.selected {
+      background-color: #fffbeb;
+      border-color: #f59e0b;
+      color: #d97706;
+    }
+
+    /* 单选标签 */
+    .radio-tag {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      border: 1.5px solid #e5e7eb;
+      background: white;
+      color: #4b5563;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      user-select: none;
+      flex: 1;
+    }
+    .radio-tag.selected {
+      background-color: #fffbeb;
+      border-color: #f59e0b;
+      color: #d97706;
+    }
+
+    /* 发布进度节点 */
+    .publish-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.75rem 0;
+    }
+    .publish-step-icon {
+      width: 1.5rem;
+      height: 1.5rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 0.125rem;
+    }
+    .publish-step-icon.pending {
+      background: #f3f4f6;
+      color: #9ca3af;
+    }
+    .publish-step-icon.running {
+      background: #fffbeb;
+      color: #f59e0b;
+    }
+    .publish-step-icon.success {
+      background: #dcfce7;
+      color: #16a34a;
+    }
+    .publish-step-icon.error {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+
+    /* 演示悬浮按钮 */
+    .demo-float-btn {
+      position: fixed;
+      right: 1rem;
+      z-index: 45;
+      width: 3rem;
+      height: 3rem;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.625rem;
+      text-align: center;
+      line-height: 1.2;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+    .demo-float-btn:active {
+      transform: scale(0.9);
+    }
+
+    /* 活动时长矩形按钮 */
+    .duration-tag {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.625rem 0;
+      border-radius: 0.5rem;
+      border: 1.5px solid #e5e7eb;
+      background: white;
+      color: #4b5563;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      user-select: none;
+      width: calc((100% - 2rem) / 5);
+      min-width: 52px;
+    }
+    .duration-tag.selected {
+      background-color: #f59e0b;
+      border-color: #f59e0b;
+      color: white;
+    }
+
+    /* 紧凑型卡片（设备/班级选择） */
+    .compact-card {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.625rem 0.5rem;
+      border-radius: 0.5rem;
+      border: 1.5px solid #e5e7eb;
+      background: white;
+      color: #374151;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      user-select: none;
+      min-width: 80px;
+      flex: 1;
+    }
+    .compact-card.selected {
+      background-color: #fffbeb;
+      border-color: #f59e0b;
+      color: #d97706;
+    }
+
+    /* 园徽状态卡片 */
+    .badge-grid-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5rem 0.25rem;
+      border-radius: 0.5rem;
+      border: 1.5px solid #e5e7eb;
+      background: white;
+      cursor: pointer;
+      transition: all 0.15s;
+      user-select: none;
+      position: relative;
+      overflow: hidden;
+    }
+    .badge-grid-card.disabled {
+      background: rgba(254, 226, 226, 0.3);
+      border-color: #fecaca;
+    }
+    .badge-grid-card.disabled .badge-no,
+    .badge-grid-card.disabled .badge-conn {
+      color: #9ca3af;
+    }
+    .badge-grid-card .badge-no {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #374151;
+    }
+    .badge-grid-card .badge-conn {
+      font-size: 0.625rem;
+      margin-top: 0.25rem;
+      font-weight: 500;
+    }
+    .badge-grid-card .badge-conn.online {
+      color: #22c55e;
+    }
+    .badge-grid-card .badge-conn.offline {
+      color: #9ca3af;
+    }
+    .badge-grid-card .badge-bar-wrap {
+      width: 100%;
+      height: 4px;
+      background: #e5e7eb;
+      border-radius: 2px;
+      margin-top: 0.375rem;
+      overflow: hidden;
+    }
+    .badge-grid-card .badge-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.3s;
+    }
+    .badge-grid-card .badge-bar-fill.high { background: #22c55e; }
+    .badge-grid-card .badge-bar-fill.medium { background: #f59e0b; }
+    .badge-grid-card .badge-bar-fill.low { background: #ef4444; }
+
+    /* 班级名册卡片 */
+    .roster-grid-card {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.625rem 0.25rem;
+      border-radius: 0.5rem;
+      border: 1.5px solid #e5e7eb;
+      background: white;
+      color: #6b7280;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      user-select: none;
+      position: relative;
+    }
+    .roster-grid-card.selected {
+      background-color: #ecfdf5;
+      border-color: #10b981;
+      color: #059669;
+    }
+    .roster-grid-card .check-icon {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      width: 12px;
+      height: 12px;
+      background: #10b981;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+    }
+    .roster-grid-card.selected .check-icon {
+      opacity: 1;
+    }
+    .roster-grid-card .check-icon svg {
+      width: 8px;
+      height: 8px;
+      color: white;
+    }
+
+    /* 刷新按钮旋转动画 */
+    @keyframes spin-once {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .spin-anim {
+      animation: spin-once 0.6s linear;
+    }
+
+    /* 步骤指示器 */
+    .step-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      background: white;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .step-item {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+    }
+    .step-dot {
+      width: 1.25rem;
+      height: 1.25rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.625rem;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .step-dot.pending {
+      border: 2px solid #d1d5db;
+      color: #9ca3af;
+      background: white;
+    }
+    .step-dot.current {
+      background: #f59e0b;
+      color: white;
+    }
+    .step-dot.done {
+      background: #22c55e;
+      color: white;
+    }
+    .step-label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .step-label.current {
+      color: #d97706;
+    }
+    .step-label.pending {
+      color: #9ca3af;
+    }
+    .step-label.done {
+      color: #6b7280;
+    }
+    .step-line {
+      width: 1.5rem;
+      height: 1.5px;
+      background: #e5e7eb;
+      flex-shrink: 0;
+    }
+    .step-line.done {
+      background: #22c55e;
+    }
+
+    /* 步骤底部操作栏 */
+    .step-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(8px);
+      border-top: 1px solid #f3f4f6;
+      padding: 0.875rem 1rem 1.25rem;
+      z-index: 20;
+      display: flex;
+      gap: 0.75rem;
+    }
+    .step-footer .btn-prev {
+      flex: 1;
+      padding: 0.875rem 0;
+      border-radius: 0.75rem;
+      border: 1.5px solid #e5e7eb;
+      background: white;
+      color: #4b5563;
+      font-size: 0.9375rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .step-footer .btn-next {
+      flex: 1;
+      padding: 0.875rem 0;
+      border-radius: 0.75rem;
+      border: none;
+      background: #f59e0b;
+      color: white;
+      font-size: 0.9375rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      box-shadow: 0 2px 8px rgba(245,158,11,0.3);
+    }
+    .step-footer .btn-next:active {
+      opacity: 0.85;
+      transform: scale(0.98);
+    }
+    .step-footer .btn-next.disabled {
+      opacity: 0.45;
+      pointer-events: none;
+    }
+    .step-footer .btn-prev:active {
+      background: #f9fafb;
+    }
+
+
+    /* 数量校验提示 */
+    .warning-tip {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem;
+      border-radius: 0.75rem;
+      background: #fef2f2;
+      border: 1.5px solid #fecaca;
+      color: #b91c1c;
+      font-size: 0.75rem;
+    }
+
+    /* 步骤表单底部占位，避免被固定底部栏遮挡 */
+    .step-form {
+      padding-bottom: 5rem !important;
+    }
+
+    /* 上传任务提示 */
+    .upload-tip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem;
+      border-radius: 0.75rem;
+      background: #fefce8;
+      border: 1.5px solid #fef08a;
+    }
+    .upload-tip-text {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: #a16207;
+      font-size: 0.75rem;
+    }
+    .upload-tip-btn {
+      padding: 0.375rem 0.75rem;
+      border-radius: 0.5rem;
+      border: 1px solid #d1d5db;
+      background: white;
+      color: #4b5563;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .upload-tip-btn:active {
+      background: #f3f4f6;
+    }
+  </style>
+</head>
+<body class="bg-gray-100">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       页面 1：首页
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="page-home" class="page active">
+    <header class="bg-white px-4 py-3 flex items-center justify-center shadow-sm sticky top-0 z-10">
+      <h1 class="text-lg font-semibold text-gray-900">智能园徽</h1>
+    </header>
+
+    <main class="p-4 space-y-3">
+      <button onclick="goPage('device')" class="btn-press w-full bg-blue-500 text-white py-4 rounded-xl text-base font-medium shadow-sm">
+        设备管理
+      </button>
+      <button onclick="goPage('roster')" class="btn-press w-full bg-emerald-500 text-white py-4 rounded-xl text-base font-medium shadow-sm">
+        设备名册
+      </button>
+      <button onclick="goPage('activity')" class="btn-press w-full bg-amber-500 text-white py-4 rounded-xl text-base font-medium shadow-sm">
+        活动列表
+      </button>
+      <button onclick="window.location.href='https://test.qiaozhihui.net/visitorApplication/childBadge/single?sessionId=7&studentUserId=5016'" class="btn-press w-full bg-rose-500 text-white py-4 rounded-xl text-base font-medium shadow-sm">
+        学生报告
+      </button>
+
+      <section class="mt-6">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-1 h-4 bg-gray-800 rounded-full"></div>
+          <h2 class="text-base font-semibold text-gray-800">使用教程</h2>
+        </div>
+        <div class="space-y-3">
+          <article class="bg-white rounded-xl p-4 shadow-sm">
+            <div class="w-full h-40 bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
+              <div class="text-center text-gray-400">
+                <svg class="w-10 h-10 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                <span class="text-sm">教程图片 1</span>
+              </div>
+            </div>
+            <p class="mt-2 text-sm text-gray-600">步骤一：绑定设备，扫描园徽二维码完成配对</p>
+          </article>
+          <article class="bg-white rounded-xl p-4 shadow-sm">
+            <div class="w-full h-40 bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
+              <div class="text-center text-gray-400">
+                <svg class="w-10 h-10 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                <span class="text-sm">教程图片 2</span>
+              </div>
+            </div>
+            <p class="mt-2 text-sm text-gray-600">步骤二：查看实时位置，确保学生安全</p>
+          </article>
+          <article class="bg-white rounded-xl p-4 shadow-sm">
+            <div class="w-full h-40 bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
+              <div class="text-center text-gray-400">
+                <svg class="w-10 h-10 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                <span class="text-sm">教程图片 3</span>
+              </div>
+            </div>
+            <p class="mt-2 text-sm text-gray-600">步骤三：生成活动报告，一键导出数据</p>
+          </article>
+        </div>
+      </section>
+    </main>
+    <div class="h-6"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       页面 2：设备管理页
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="page-device" class="page">
+    <header class="bg-white px-4 py-3 flex items-center shadow-sm sticky top-0 z-10">
+      <button onclick="handleFormReturn()" class="p-1 -ml-1 mr-2 btn-press">
+        <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <h1 class="text-lg font-semibold text-gray-900">设备管理</h1>
+    </header>
+    <main class="p-4 space-y-3" id="device-list"></main>
+    <div class="h-24"></div>
+
+    <div class="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-sm border-t border-gray-100 px-4 py-3 z-20">
+      <button onclick="openAddModal()" class="btn-press w-full py-3.5 rounded-xl bg-blue-500 text-white text-base font-medium shadow-sm">
+        + 添加设备
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       页面 3：设备名册页
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="page-roster" class="page">
+    <header class="bg-white px-4 py-3 flex items-center shadow-sm sticky top-0 z-10">
+      <button onclick="handleFormReturn()" class="p-1 -ml-1 mr-2 btn-press">
+        <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <h1 class="text-lg font-semibold text-gray-900">设备名册</h1>
+    </header>
+    <div class="bg-white px-4 py-3 border-b border-gray-100">
+      <div class="flex gap-2 overflow-x-auto no-scrollbar" id="roster-class-filter"></div>
+    </div>
+    <main class="p-4 space-y-3" id="roster-content">
+      <!-- 当前活动卡片 -->
+      <div id="roster-activity-card"></div>
+      <!-- 学生名册列表 -->
+      <div id="roster-student-list"></div>
+    </main>
+    <div class="h-6"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       页面 4：设备详情页
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="page-detail" class="page">
+    <header class="bg-white px-4 py-3 flex items-center shadow-sm sticky top-0 z-10">
+      <button onclick="goPage('device')" class="p-1 -ml-1 mr-2 btn-press">
+        <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <h1 class="text-lg font-semibold text-gray-900">设备详情</h1>
+    </header>
+    <main class="p-4 space-y-4" id="detail-content"></main>
+    <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 flex gap-3 z-10">
+      <button onclick="goPage('device')" class="btn-press flex-1 py-3 rounded-xl bg-gray-100 text-gray-700 text-base font-medium">
+        返回
+      </button>
+      <button onclick="refreshDetail()" class="btn-press flex-1 py-3 rounded-xl bg-blue-500 text-white text-base font-medium shadow-sm">
+        刷新数据
+      </button>
+    </div>
+    <div class="h-20"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       页面 5：活动列表页
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="page-activity" class="page">
+    <header class="bg-white px-4 py-3 flex items-center shadow-sm sticky top-0 z-10">
+      <button onclick="goPage('home')" class="p-1 -ml-1 mr-2 btn-press">
+        <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <h1 class="text-lg font-semibold text-gray-900">活动列表</h1>
+    </header>
+
+    <div class="bg-white px-4 py-3 space-y-3 border-b border-gray-100">
+      <div class="flex gap-2">
+        <div class="relative flex-1">
+          <svg class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          <input id="activity-search-input" type="text" oninput="filterActivities()" class="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent" placeholder="搜索活动名称">
+        </div>
+        <select id="activity-class-filter" onchange="filterActivities()" class="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500" style="min-width:7rem">
+          <option value="">全部班级</option>
+        </select>
+      </div>
+      <div class="flex gap-2 overflow-x-auto no-scrollbar" id="activity-type-filter"></div>
+    </div>
+
+    <main class="p-4 space-y-3" id="activity-list"></main>
+    <div class="h-24"></div>
+
+    <div class="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-sm border-t border-gray-100 px-4 py-3 z-20">
+      <button onclick="openCreateGuide()" class="btn-press w-full py-3.5 rounded-xl bg-amber-500 text-white text-base font-medium shadow-sm">
+        + 创建活动
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       页面 6：活动详情页
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="page-activity-detail" class="page">
+    <header class="bg-white px-4 py-3 flex items-center shadow-sm sticky top-0 z-10">
+      <button onclick="goPage(activityDetailSource)" class="p-1 -ml-1 mr-2 btn-press">
+        <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <h1 class="text-lg font-semibold text-gray-900">活动详情</h1>
+    </header>
+    <main class="p-4 space-y-4" id="activity-detail-content"></main>
+
+    <!-- 演示悬浮按钮：切换报告状态 -->
+    <button onclick="toggleDemoReportState()" class="demo-float-btn" style="top: 4.5rem;">
+      切换<br>状态
+    </button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       页面 7：创建活动页
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="page-create-activity" class="page">
+    <header class="bg-white px-4 py-3 flex items-center shadow-sm sticky top-0 z-10">
+      <button onclick="goPage('activity')" class="p-1 -ml-1 mr-2 btn-press">
+        <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <h1 class="text-lg font-semibold text-gray-900">创建活动</h1>
+    </header>
+    <!-- 步骤指示器 -->
+    <div id="create-step-indicator"></div>
+    <main class="p-4 space-y-4 step-form" id="create-activity-form"></main>
+    <!-- 底部步骤操作栏 -->
+    <div id="create-step-footer"></div>
+
+    <!-- 演示悬浮按钮：切换发布结果 -->
+    <button onclick="toggleDemoPublishResult()" class="demo-float-btn" style="top: 4.5rem;">
+      切换<br>发布<br>结果
+    </button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       页面 8：编辑活动页
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="page-edit-activity" class="page">
+    <header class="bg-white px-4 py-3 flex items-center shadow-sm sticky top-0 z-10">
+      <button onclick="goPage('activity')" class="p-1 -ml-1 mr-2 btn-press">
+        <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <h1 class="text-lg font-semibold text-gray-900">编辑活动</h1>
+    </header>
+    <!-- 步骤指示器 -->
+    <div id="edit-step-indicator"></div>
+    <main class="p-4 space-y-4 step-form" id="edit-activity-form"></main>
+    <!-- 底部步骤操作栏 -->
+    <div id="edit-step-footer"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       页面 9：活动报告 H5（临时）
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="page-activity-report" class="page">
+    <header class="bg-white px-4 py-3 flex items-center shadow-sm sticky top-0 z-10">
+      <button onclick="goPage('activity-detail')" class="p-1 -ml-1 mr-2 btn-press">
+        <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <h1 class="text-lg font-semibold text-gray-900">活动报告</h1>
+    </header>
+    <main class="p-8 text-center">
+      <div class="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <svg class="w-10 h-10 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      </div>
+      <h2 class="text-lg font-semibold text-gray-700 mb-2">活动报告 H5 页面</h2>
+      <p class="text-sm text-gray-500">此处将展示活动的完整数据分析报告</p>
+    </main>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       页面 10：幼儿个人报告 H5（临时）
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="page-student-report" class="page">
+    <header class="bg-white px-4 py-3 flex items-center shadow-sm sticky top-0 z-10">
+      <button onclick="goPage('activity-detail')" class="p-1 -ml-1 mr-2 btn-press">
+        <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <h1 class="text-lg font-semibold text-gray-900">幼儿个人报告</h1>
+    </header>
+    <main class="p-8 text-center">
+      <div class="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <svg class="w-10 h-10 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+      </div>
+      <h2 class="text-lg font-semibold text-gray-700 mb-2">幼儿个人报告 H5 页面</h2>
+      <p class="text-sm text-gray-500">此处将展示该幼儿的活动数据与个人成长报告</p>
+    </main>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       页面 11：学生报告页（占位）
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="page-report" class="page">
+    <header class="bg-white px-4 py-3 flex items-center shadow-sm sticky top-0 z-10">
+      <button onclick="goPage('home')" class="p-1 -ml-1 mr-2 btn-press">
+        <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <h1 class="text-lg font-semibold text-gray-900">学生报告</h1>
+    </header>
+    <main class="p-8 text-center">
+      <div class="w-20 h-20 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <svg class="w-10 h-10 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      </div>
+      <h2 class="text-lg font-semibold text-gray-700 mb-2">功能开发中</h2>
+      <p class="text-sm text-gray-500">学生活动数据报告功能即将上线，敬请期待</p>
+      <button onclick="goPage('home')" class="btn-press mt-6 px-6 py-2.5 rounded-xl bg-rose-500 text-white text-base font-medium shadow-sm">
+        返回首页
+      </button>
+    </main>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       浮层：底部操作抽屉（设备）
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="drawer" class="drawer-overlay">
+    <div class="absolute inset-0 bg-black/40" onclick="closeDrawer()"></div>
+    <div class="drawer-panel">
+      <div class="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4"></div>
+      <div class="text-center mb-4">
+        <span class="text-sm text-gray-500">已选择：</span>
+        <span id="drawer-device-name" class="text-base font-semibold text-gray-900"></span>
+      </div>
+      <div class="space-y-2">
+        <button onclick="actionDetail()" class="btn-press w-full py-3.5 rounded-xl bg-white border border-gray-200 text-gray-800 text-base font-medium">详情</button>
+        <button onclick="actionEdit()" class="btn-press w-full py-3.5 rounded-xl bg-white border border-gray-200 text-gray-800 text-base font-medium">编辑</button>
+        <button onclick="actionDelete()" class="btn-press w-full py-3.5 rounded-xl bg-white border border-red-200 text-red-500 text-base font-medium">删除</button>
+        <button onclick="closeDrawer()" class="btn-press w-full py-3.5 rounded-xl bg-gray-100 text-gray-700 text-base font-medium mt-2">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       浮层：活动操作抽屉
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="activity-drawer" class="drawer-overlay">
+    <div class="absolute inset-0 bg-black/40" onclick="closeActivityDrawer()"></div>
+    <div class="drawer-panel">
+      <div class="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4"></div>
+      <div class="text-center mb-4">
+        <span class="text-sm text-gray-500">活动：</span>
+        <span id="activity-drawer-name" class="text-base font-semibold text-gray-900"></span>
+      </div>
+      <div class="space-y-2">
+        <button onclick="actionEditActivity()" class="btn-press w-full py-3.5 rounded-xl bg-white border border-gray-200 text-gray-800 text-base font-medium">编辑</button>
+        <button onclick="actionDeleteActivity()" class="btn-press w-full py-3.5 rounded-xl bg-white border border-red-200 text-red-500 text-base font-medium">删除</button>
+        <button onclick="closeActivityDrawer()" class="btn-press w-full py-3.5 rounded-xl bg-gray-100 text-gray-700 text-base font-medium mt-2">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       浮层：设备详情页园徽操作抽屉（仅禁用/启用）
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="detail-badge-drawer" class="drawer-overlay">
+    <div class="absolute inset-0 bg-black/40" onclick="closeDetailBadgeDrawer()"></div>
+    <div class="drawer-panel">
+      <div class="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4"></div>
+      <div class="text-center mb-4">
+        <span class="text-sm text-gray-500">园徽：</span>
+        <span id="detail-badge-drawer-name" class="text-base font-semibold text-gray-900"></span>
+      </div>
+      <div class="space-y-2">
+        <button id="detail-badge-btn-toggle" onclick="actionToggleDetailBadge()" class="btn-press w-full py-3.5 rounded-xl bg-white border border-gray-200 text-gray-800 text-base font-medium">禁用</button>
+        <button onclick="closeDetailBadgeDrawer()" class="btn-press w-full py-3.5 rounded-xl bg-gray-100 text-gray-700 text-base font-medium mt-2">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       浮层：园徽操作抽屉（名册页用）
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="badge-drawer" class="drawer-overlay">
+    <div class="absolute inset-0 bg-black/40" onclick="closeBadgeDrawer()"></div>
+    <div class="drawer-panel">
+      <div class="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4"></div>
+      <div class="text-center mb-4">
+        <span class="text-sm text-gray-500">园徽：</span>
+        <span id="badge-drawer-name" class="text-base font-semibold text-gray-900"></span>
+      </div>
+      <div class="space-y-2">
+        <button id="badge-btn-toggle" onclick="actionToggleBadge()" class="btn-press w-full py-3.5 rounded-xl bg-white border border-gray-200 text-gray-800 text-base font-medium">禁用</button>
+        <button id="badge-btn-unbind" onclick="actionUnbindBadge()" class="btn-press w-full py-3.5 rounded-xl bg-white border border-gray-200 text-gray-800 text-base font-medium">解绑</button>
+        <button id="badge-btn-bind" onclick="actionBindBadge()" class="btn-press w-full py-3.5 rounded-xl bg-white border border-blue-200 text-blue-600 text-base font-medium">绑定</button>
+        <button onclick="closeBadgeDrawer()" class="btn-press w-full py-3.5 rounded-xl bg-gray-100 text-gray-700 text-base font-medium mt-2">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       浮层：更换班级弹窗
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="class-modal" class="modal-overlay">
+    <div class="absolute inset-0 bg-black/50" onclick="closeClassModal()"></div>
+    <div class="modal-box">
+      <div class="px-5 pt-5 pb-3">
+        <h3 class="text-lg font-bold text-gray-900">选择班级</h3>
+        <p class="text-sm text-gray-500 mt-1">为 <span id="modal-device-name" class="font-medium text-gray-700"></span> 更换绑定的班级</p>
+      </div>
+      <div class="px-3 pb-3 max-h-[320px] overflow-y-auto" id="class-list"></div>
+      <div class="flex border-t border-gray-100">
+        <button onclick="closeClassModal()" class="flex-1 py-3.5 text-base font-medium text-gray-600 hover:bg-gray-50 transition-colors">取消</button>
+        <div class="w-px bg-gray-100"></div>
+        <button id="confirm-class-btn" onclick="confirmClassChange()" disabled class="flex-1 py-3.5 text-base font-medium text-blue-500 hover:bg-blue-50 transition-colors disabled:opacity-40 disabled:hover:bg-white">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       浮层：添加设备弹窗
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="add-modal" class="modal-overlay">
+    <div class="absolute inset-0 bg-black/50" onclick="closeAddModal()"></div>
+    <div class="modal-box">
+      <div class="px-5 pt-5 pb-3">
+        <h3 class="text-lg font-bold text-gray-900">添加设备</h3>
+        <p class="text-sm text-gray-500 mt-1">录入新网关设备信息</p>
+      </div>
+      <div class="px-5 pb-4 space-y-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">设备名称 <span class="text-red-500">*</span></label>
+          <input id="add-input-name" type="text" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="请输入设备名称">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">设备 MAC</label>
+          <input id="add-input-mac" type="text" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-base text-gray-900 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="请输入MAC地址">
+        </div>
+      </div>
+      <div class="flex border-t border-gray-100">
+        <button onclick="closeAddModal()" class="flex-1 py-3.5 text-base font-medium text-gray-600 hover:bg-gray-50 transition-colors">取消</button>
+        <div class="w-px bg-gray-100"></div>
+        <button onclick="confirmAdd()" class="flex-1 py-3.5 text-base font-medium text-blue-500 hover:bg-blue-50 transition-colors">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       浮层：编辑设备弹窗
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="edit-modal" class="modal-overlay">
+    <div class="absolute inset-0 bg-black/50" onclick="closeEditModal()"></div>
+    <div class="modal-box">
+      <div class="px-5 pt-5 pb-3">
+        <h3 class="text-lg font-bold text-gray-900">编辑设备</h3>
+        <p class="text-sm text-gray-500 mt-1">修改 <span id="edit-device-name" class="font-medium text-gray-700"></span> 的信息</p>
+      </div>
+      <div class="px-5 pb-4 space-y-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">设备名称</label>
+          <input id="edit-input-name" type="text" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="请输入设备名称">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">设备 MAC</label>
+          <input id="edit-input-mac" type="text" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-base text-gray-900 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="请输入MAC地址">
+        </div>
+      </div>
+      <div class="flex border-t border-gray-100">
+        <button onclick="closeEditModal()" class="flex-1 py-3.5 text-base font-medium text-gray-600 hover:bg-gray-50 transition-colors">取消</button>
+        <div class="w-px bg-gray-100"></div>
+        <button onclick="confirmEdit()" class="flex-1 py-3.5 text-base font-medium text-blue-500 hover:bg-blue-50 transition-colors">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       浮层：删除确认弹窗
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="delete-modal" class="modal-overlay">
+    <div class="absolute inset-0 bg-black/50" onclick="closeDeleteModal()"></div>
+    <div class="modal-box">
+      <div class="px-5 pt-6 pb-4 text-center">
+        <h3 class="text-lg font-bold text-gray-900">请确认是否删除网关设备</h3>
+        <p class="text-sm text-gray-500 mt-2">删除后不可恢复，请谨慎操作</p>
+      </div>
+      <div class="flex border-t border-gray-100">
+        <button onclick="closeDeleteModal()" class="flex-1 py-3.5 text-base font-medium text-gray-600 hover:bg-gray-50 transition-colors">取消</button>
+        <div class="w-px bg-gray-100"></div>
+        <button onclick="confirmDelete()" class="flex-1 py-3.5 text-base font-medium text-red-500 hover:bg-red-50 transition-colors">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       浮层：创建活动引导弹窗
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="activity-guide-modal" class="modal-overlay">
+    <div class="absolute inset-0 bg-black/50"></div>
+    <div class="modal-box">
+      <div class="px-5 pt-5 pb-3 text-center">
+        <h3 class="text-lg font-bold text-gray-900 mb-3">提示</h3>
+        <div class="w-full h-32 bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300 mb-3">
+          <span class="text-sm text-gray-400">充电箱操作示意图</span>
+        </div>
+        <p class="text-sm text-gray-600 text-left leading-relaxed">
+          发布/编辑/删除活动前，需要做如下准备工作：<br>
+          第一步：将所有徽章放置在充电箱内的充电插槽处；<br>
+          第二步：连接充电箱电源<br>
+          保证所有徽章设备处于充电状态，才可以进行操作哦
+        </p>
+      </div>
+      <div class="px-5 pb-5">
+        <button onclick="closeGuideAndGoCreate()" class="btn-press w-full py-3 rounded-xl bg-blue-500 text-white text-base font-medium shadow-sm">
+          我已知晓
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       浮层：发布进度弹窗
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="activity-publish-modal" class="modal-overlay">
+    <div class="absolute inset-0 bg-black/50"></div>
+    <div class="modal-box">
+      <div class="px-5 pt-5 pb-3">
+        <h3 class="text-lg font-bold text-gray-900 mb-1">发布进度</h3>
+        <p class="text-sm text-gray-500" id="publish-modal-subtitle">正在下发活动到硬件设备…</p>
+      </div>
+      <div class="px-5 pb-3" id="publish-steps">
+        <!-- JS 渲染 -->
+      </div>
+      <div class="px-5 pb-5" id="publish-modal-footer">
+        <!-- JS 渲染 -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       浮层：更换绑定学生弹窗（创建/编辑活动页用）
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="rebind-modal" class="modal-overlay">
+    <div class="absolute inset-0 bg-black/50" onclick="closeRebindModal()"></div>
+    <div class="modal-box">
+      <div class="px-5 pt-5 pb-3">
+        <h3 class="text-lg font-bold text-gray-900">更换绑定学生</h3>
+        <p class="text-sm text-gray-500 mt-1" id="rebind-current-holder"></p>
+      </div>
+      <div class="px-3 pb-3 max-h-[320px] overflow-y-auto" id="rebind-student-list"></div>
+      <div id="rebind-empty" class="hidden px-5 pb-4 text-center text-sm text-gray-400">暂无可绑定学生</div>
+      <div class="flex border-t border-gray-100">
+        <button onclick="closeRebindModal()" class="flex-1 py-3.5 text-base font-medium text-gray-600 hover:bg-gray-50 transition-colors">取消</button>
+        <div class="w-px bg-gray-100"></div>
+        <button id="confirm-rebind-btn" onclick="confirmRebind()" disabled class="flex-1 py-3.5 text-base font-medium text-blue-500 hover:bg-blue-50 transition-colors disabled:opacity-40 disabled:hover:bg-white">换绑</button>
+        <div class="w-px bg-gray-100"></div>
+        <button onclick="confirmRebindUnbind()" class="flex-1 py-3.5 text-base font-medium text-red-500 hover:bg-red-50 transition-colors">解绑</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       浮层：学生选择弹窗
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="student-select-modal" class="modal-overlay">
+    <div class="absolute inset-0 bg-black/50" onclick="closeStudentSelectModal()"></div>
+    <div class="modal-box">
+      <div class="px-5 pt-5 pb-3">
+        <h3 class="text-lg font-bold text-gray-900">选择持有人</h3>
+        <p class="text-sm text-gray-500 mt-1">为 <span id="bind-badge-name" class="font-medium text-gray-700"></span> 绑定学生</p>
+      </div>
+      <div class="px-3 pb-3 max-h-[320px] overflow-y-auto" id="student-select-list"></div>
+      <div id="student-select-empty" class="hidden px-5 pb-4 text-center text-sm text-gray-400">暂无可绑定学生</div>
+      <div class="flex border-t border-gray-100">
+        <button onclick="closeStudentSelectModal()" class="flex-1 py-3.5 text-base font-medium text-gray-600 hover:bg-gray-50 transition-colors">取消</button>
+        <div class="w-px bg-gray-100"></div>
+        <button id="confirm-student-btn" onclick="confirmBindStudent()" disabled class="flex-1 py-3.5 text-base font-medium text-blue-500 hover:bg-blue-50 transition-colors disabled:opacity-40 disabled:hover:bg-white">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       浮层：终止上传确认弹窗
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="stop-upload-modal" class="modal-overlay">
+    <div class="absolute inset-0 bg-black/50" onclick="closeStopUploadModal()"></div>
+    <div class="modal-box">
+      <div class="px-5 pt-5 pb-3">
+        <h3 class="text-lg font-bold text-gray-900">确认终止上传</h3>
+        <p class="text-sm text-gray-500 mt-2">终止上传后，园徽已录制的音频数据将会丢失，是否确认终止？</p>
+      </div>
+      <div class="flex border-t border-gray-100">
+        <button onclick="closeStopUploadModal()" class="flex-1 py-3.5 text-base font-medium text-gray-600 hover:bg-gray-50 transition-colors">取消</button>
+        <div class="w-px bg-gray-100"></div>
+        <button onclick="confirmStopUpload()" class="flex-1 py-3.5 text-base font-medium text-red-500 hover:bg-red-50 transition-colors">确认终止</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       浮层：Toast 提示
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="toast" class="toast">
+    <svg class="w-6 h-6 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <span id="toast-message" class="text-base font-medium"></span>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       JavaScript
+       ═══════════════════════════════════════════════════════════ -->
+  <script>
+    // ─────────────── 数据 ───────────────
+    let devices = [
+      { id: '001', name: '网关-001', status: 'normal', className: '大班-1班', mac: 'A4:B5:C6:D7:E8:F9' },
+      { id: '002', name: '网关-002', status: 'offline', className: '中班-2班', mac: 'B3:C4:D5:E6:F7:A8' },
+      { id: '003', name: '网关-003', status: 'normal', className: '小班-1班', mac: 'C2:D3:E4:F5:A6:B7' },
+      { id: '004', name: '网关-004', status: 'normal', className: '大班-2班', mac: 'D1:E2:F3:A4:B5:C6' },
+      { id: '005', name: '网关-005', status: 'offline', className: '中班-1班', mac: 'E0:F1:A2:B3:C4:D5' },
+      { id: '006', name: '网关-006', status: 'normal', className: '小班-2班', mac: 'F9:A0:B1:C2:D3:E4' },
+    ];
+
+    const classList = [
+      '大班-1班', '大班-2班',
+      '中班-1班', '中班-2班',
+      '小班-1班', '小班-2班',
+    ];
+
+    const childrenNames = [
+      '王小明', '李小红', '张小刚', '刘小丽', '陈小军',
+      '周小芳', '吴小强', '郑小敏', '孙小伟', '马小静',
+      '朱小磊', '胡小娟', '林小波', '郭小艳', '何小涛',
+      '高小玲', '罗小辉', '梁小霞', '宋小杰', '唐小萍',
+    ];
+
+    // 学生班级映射
+    const studentClassMap = {
+      '王小明': '大班-1班', '李小红': '大班-1班', '张小刚': '大班-1班',
+      '刘小丽': '大班-2班', '陈小军': '大班-2班', '周小芳': '大班-2班',
+      '吴小强': '中班-1班', '郑小敏': '中班-1班', '孙小伟': '中班-1班',
+      '马小静': '中班-2班', '朱小磊': '中班-2班', '胡小娟': '中班-2班',
+      '林小波': '小班-1班', '郭小艳': '小班-1班', '何小涛': '小班-1班',
+      '高小玲': '小班-2班', '罗小辉': '小班-2班', '梁小霞': '小班-2班', '宋小杰': '小班-2班', '唐小萍': '小班-2班',
+    };
+
+    function getStudentsByClass(className) {
+      if (!className) return childrenNames.slice();
+      return childrenNames.filter(name => studentClassMap[name] === className);
+    }
+
+    function getBadgeByStudent(studentName) {
+      for (const device of rosterData) {
+        for (const badge of device.badges) {
+          if (badge.holder === studentName) return badge;
+        }
+      }
+      return null;
+    }
+
+    function buildRosterData() {
+      return devices.map((d, idx) => {
+        const base = idx * 3;
+        const count = idx < 4 ? 3 : 4;
+        const badges = [];
+        for (let i = 0; i < count; i++) {
+          const num = base + i + 1;
+          badges.push({ badgeNo: String(num).padStart(3, '0'), holder: childrenNames[num - 1], status: 'normal' });
+        }
+        return { ...d, badges };
+      });
+    }
+
+    let rosterData = buildRosterData();
+
+    // 表单返回状态
+    let formReturnState = null; // { page: 'create-activity'|'edit-activity', refresh: 'device'|'roster' }
+
+    function gotoDeviceMgmtFromForm(page, refresh) {
+      formReturnState = { page, refresh };
+      goPage('device');
+    }
+
+    function gotoRosterFromForm(page, refresh) {
+      formReturnState = { page, refresh };
+      goPage('roster');
+    }
+
+    function gotoRosterFromDetail() {
+      formReturnState = { page: 'detail', refresh: true };
+      goPage('roster');
+    }
+
+    function handleFormReturn() {
+      if (formReturnState) {
+        const { page, refresh } = formReturnState;
+        formReturnState = null;
+        if (page === 'create-activity') {
+          renderCreateActivityForm();
+          goPage('create-activity');
+          if (refresh === 'device' && createFormData.useDevice) {
+            setTimeout(() => selectCreateDevice(createFormData.useDevice), 50);
+          }
+        } else if (page === 'edit-activity') {
+          renderEditActivityForm();
+          goPage('edit-activity');
+          if (refresh === 'device' && editFormDevice) {
+            setTimeout(() => selectEditDevice(editFormDevice), 50);
+          }
+        } else if (page === 'detail') {
+          renderDetail();
+          goPage('detail');
+        }
+      } else {
+        goPage('home');
+      }
+    }
+
+    const activityTypes = ['全部', '美术', '音乐', '体育', '语言', '科学', '手工'];
+
+    let activities = [
+      { id: 'a1', name: '画一匹奔腾的小野马', type: '美术', className: '总园/大班-1班', startTime: '2026/06/04 09:00', duration: 40, teachers: ['王老师'], students: ['王小明', '李小红', '张小刚'], useDevice: '网关-001', reportGenerated: true, studentReports: { '王小明': true, '李小红': false, '张小刚': false } },
+      { id: 'a2', name: '快乐音符', type: '音乐', className: '总园/大班-2班', startTime: '2026/06/04 10:00', duration: 30, teachers: ['李老师'], students: ['刘小丽', '陈小军'], useDevice: '网关-002', reportGenerated: false, studentReports: { '刘小丽': false, '陈小军': false } },
+      { id: 'a3', name: '户外接力跑', type: '体育', className: '总园/中班-1班', startTime: '2026/06/04 14:00', duration: 20, teachers: ['张老师'], students: ['吴小强', '郑小敏', '孙小伟'], useDevice: '网关-004', reportGenerated: true, studentReports: { '吴小强': true, '郑小敏': true, '孙小伟': true } },
+      { id: 'a4', name: '绘本故事会', type: '语言', className: '总园/中班-2班', startTime: '2026/06/04 15:00', duration: 40, teachers: ['刘老师'], students: ['马小静', '朱小磊', '胡小娟'], useDevice: '网关-005', reportGenerated: false, studentReports: { '马小静': false, '朱小磊': false, '胡小娟': false } },
+      { id: 'a5', name: '彩虹实验', type: '科学', className: '总园/小班-1班', startTime: '2026/06/04 09:30', duration: 30, teachers: ['陈老师'], students: ['林小波', '郭小艳', '何小涛'], useDevice: '网关-003', reportGenerated: true, studentReports: { '林小波': true, '郭小艳': true, '何小涛': true } },
+    ];
+
+    let selectedActivity = null;
+    let activityTypeFilter = '全部';
+    let selectedDevice = null;
+    let selectedClassName = null;
+    let activityDetailSource = 'activity'; // 'activity' | 'roster'，记录从哪个页面进入活动详情
+
+    // 演示状态
+    let demoPublishFail = false;
+
+    function toggleDemoPublishResult() {
+      demoPublishFail = !demoPublishFail;
+      showToast(demoPublishFail ? '演示模式：发布将失败' : '演示模式：发布将成功');
+    }
+
+    // ─────────────── 页面切换 ───────────────
+    function goPage(pageName) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page-' + pageName).classList.add('active');
+      window.scrollTo(0, 0);
+    }
+
+    // ─────────────── 设备列表 ───────────────
+    function renderDevices() {
+      const container = document.getElementById('device-list');
+      if (!devices.length) {
+        container.innerHTML = '<div class="text-center text-gray-400 py-12">暂无设备</div>';
+        return;
+      }
+      container.innerHTML = devices.map(d => {
+        const isNormal = d.status === 'normal';
+        const statusColor = isNormal ? 'bg-green-500' : 'bg-gray-400';
+        const statusText = isNormal ? '正常' : '离线';
+        return `
+          <div onclick="openDrawer('${d.id}')" class="btn-press bg-white rounded-xl p-4 shadow-sm flex items-center justify-between cursor-pointer">
+            <div class="text-base font-semibold text-gray-900">${d.name}</div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full ${statusColor}"></span>
+              <span class="text-sm ${isNormal ? 'text-green-600' : 'text-gray-500'}">${statusText}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openDrawer(deviceId) {
+      selectedDevice = devices.find(d => d.id === deviceId);
+      if (!selectedDevice) return;
+      document.getElementById('drawer-device-name').textContent = selectedDevice.name;
+      document.getElementById('drawer').classList.add('show');
+    }
+
+    function closeDrawer() {
+      document.getElementById('drawer').classList.remove('show');
+    }
+
+    function actionChangeClass() {
+      closeDrawer();
+      openClassModal();
+    }
+
+    function actionDetail() {
+      closeDrawer();
+      renderDetail();
+      goPage('detail');
+    }
+
+    function actionEdit() {
+      closeDrawer();
+      openEditModal();
+    }
+
+    function actionDelete() {
+      closeDrawer();
+      openDeleteModal();
+    }
+
+    // ─────────────── 更换班级弹窗 ───────────────
+    function openClassModal() {
+      selectedClassName = null;
+      document.getElementById('modal-device-name').textContent = selectedDevice ? selectedDevice.name : '';
+      document.getElementById('confirm-class-btn').disabled = true;
+      renderClassList();
+      document.getElementById('class-modal').classList.add('show');
+    }
+
+    function closeClassModal() {
+      selectedClassName = null;
+      document.getElementById('class-modal').classList.remove('show');
+    }
+
+    function renderClassList() {
+      const container = document.getElementById('class-list');
+      const currentClass = selectedDevice ? selectedDevice.className : '';
+      container.innerHTML = classList.map(cls => {
+        const isSelected = selectedClassName === cls;
+        const isCurrent = currentClass === cls;
+        return `
+          <div onclick="selectClass('${cls}')" class="class-option ${isSelected ? 'selected' : ''} ${isCurrent && !isSelected ? 'bg-gray-50' : ''}">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-sm font-bold">${cls.slice(0, 1)}</div>
+              <div>
+                <div class="text-base font-medium text-gray-900">${cls}</div>
+                ${isCurrent ? '<div class="text-xs text-gray-400 mt-0.5">当前绑定班级</div>' : ''}
+              </div>
+            </div>
+            <svg class="check-icon w-5 h-5 text-blue-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+            </svg>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function selectClass(cls) {
+      selectedClassName = cls;
+      document.getElementById('confirm-class-btn').disabled = false;
+      renderClassList();
+    }
+
+    function confirmClassChange() {
+      if (!selectedDevice || !selectedClassName) return;
+      const device = devices.find(d => d.id === selectedDevice.id);
+      if (device) device.className = selectedClassName;
+      const rosterItem = rosterData.find(d => d.id === selectedDevice.id);
+      if (rosterItem) { rosterItem.className = selectedClassName; renderRoster(); }
+      renderDevices();
+      closeClassModal();
+      showToast(`「${selectedDevice.name}」已成功换绑到 ${selectedClassName}`);
+    }
+
+    // ─────────────── 添加设备弹窗 ───────────────
+    function openAddModal() {
+      document.getElementById('add-input-name').value = '';
+      document.getElementById('add-input-mac').value = '';
+      document.getElementById('add-modal').classList.add('show');
+    }
+
+    function closeAddModal() {
+      document.getElementById('add-modal').classList.remove('show');
+    }
+
+    function confirmAdd() {
+      const name = document.getElementById('add-input-name').value.trim();
+      const mac = document.getElementById('add-input-mac').value.trim();
+      if (!name) { showToast('设备名称不能为空'); return; }
+      const id = String(devices.length + 1).padStart(3, '0');
+      const newDevice = { id, name, status: 'normal', className: classList[0], mac: mac || '' };
+      devices.push(newDevice);
+      // 同步到名册数据
+      rosterData.push({ ...newDevice, badges: [] });
+      renderDevices(); renderRoster();
+      closeAddModal();
+      showToast('设备添加成功');
+    }
+
+    // ─────────────── 编辑设备弹窗 ───────────────
+    function openEditModal() {
+      if (!selectedDevice) return;
+      document.getElementById('edit-device-name').textContent = selectedDevice.name;
+      document.getElementById('edit-input-name').value = selectedDevice.name;
+      document.getElementById('edit-input-mac').value = selectedDevice.mac || '';
+      document.getElementById('edit-modal').classList.add('show');
+    }
+
+    function closeEditModal() {
+      document.getElementById('edit-modal').classList.remove('show');
+    }
+
+    function confirmEdit() {
+      if (!selectedDevice) return;
+      const newName = document.getElementById('edit-input-name').value.trim();
+      const newMac = document.getElementById('edit-input-mac').value.trim();
+      if (!newName) { showToast('设备名称不能为空'); return; }
+      const device = devices.find(d => d.id === selectedDevice.id);
+      if (device) { device.name = newName; device.mac = newMac; selectedDevice.name = newName; selectedDevice.mac = newMac; }
+      const rosterItem = rosterData.find(d => d.id === selectedDevice.id);
+      if (rosterItem) { rosterItem.name = newName; rosterItem.mac = newMac; }
+      renderDevices(); renderRoster(); closeEditModal(); showToast('修改完成');
+    }
+
+    // ─────────────── 删除确认弹窗 ───────────────
+    function openDeleteModal() {
+      document.getElementById('delete-modal').classList.add('show');
+    }
+
+    function closeDeleteModal() {
+      document.getElementById('delete-modal').classList.remove('show');
+    }
+
+    function confirmDelete() {
+      if (window._confirmDeleteCallback) { window._confirmDeleteCallback(); return; }
+      if (!selectedDevice) return;
+      devices = devices.filter(d => d.id !== selectedDevice.id);
+      const idx = rosterData.findIndex(d => d.id === selectedDevice.id);
+      if (idx > -1) rosterData.splice(idx, 1);
+      renderDevices(); renderRoster(); closeDeleteModal(); showToast('删除成功');
+    }
+
+    // ─────────────── Toast ───────────────
+    let toastTimer = null;
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-message').textContent = message;
+      toast.classList.add('show');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    // ─────────────── 设备详情页 ───────────────
+    function renderDetail() {
+      if (!selectedDevice) return;
+      const container = document.getElementById('detail-content');
+      const rosterItem = rosterData.find(d => d.id === selectedDevice.id);
+      const badges = rosterItem ? rosterItem.badges : [];
+      const isNormal = selectedDevice.status === 'normal';
+      const statusColor = isNormal ? 'text-green-600' : 'text-gray-500';
+      const statusText = isNormal ? '在线' : '离线';
+      container.innerHTML = `
+        <div class="bg-white rounded-xl p-4 shadow-sm space-y-3">
+          <div class="flex items-center justify-between"><span class="text-sm text-gray-500">设备名称</span><span class="text-base font-semibold text-gray-900">${selectedDevice.name}</span></div>
+          <div class="border-t border-gray-100"></div>
+          <div class="flex items-center justify-between"><span class="text-sm text-gray-500">设备 MAC</span><span class="text-base font-mono text-gray-700">${selectedDevice.mac}</span></div>
+          <div class="border-t border-gray-100"></div>
+          <div class="flex items-center justify-between"><span class="text-sm text-gray-500">设备状态</span><span class="text-base font-medium ${statusColor}">${statusText}</span></div>
+        </div>
+        <div>
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-1 h-4 bg-emerald-500 rounded-full"></div>
+            <h2 class="text-base font-semibold text-gray-800">关联园徽</h2>
+            <span class="text-sm text-gray-400">共 ${badges.length} 个</span>
+          </div>
+          <div class="space-y-2">${badges.length > 0 ? badges.map(b => {
+            const isDisabled = b.status === 'disabled';
+            const bgClass = isDisabled ? 'bg-gray-100' : 'bg-white';
+            const iconBg = isDisabled ? 'bg-gray-200 text-gray-400' : 'bg-emerald-100 text-emerald-600';
+            const nameColor = isDisabled ? 'text-gray-400' : 'text-gray-800';
+            const statusBadgeColor = isDisabled ? 'text-gray-500' : 'text-green-600';
+            const statusBadgeText = isDisabled ? '禁用' : '正常';
+            return `
+              <div onclick="openDetailBadgeDrawer('${selectedDevice.id}', '${b.badgeNo}')" class="btn-press ${bgClass} rounded-xl p-4 shadow-sm flex items-center justify-between cursor-pointer">
+                <div class="flex items-center gap-3"><div class="w-9 h-9 rounded-lg ${iconBg} flex items-center justify-center text-sm font-bold">徽</div><div><div class="text-sm font-medium ${nameColor}">园徽-${b.badgeNo}</div><div class="text-xs text-gray-400 mt-0.5">${b.badgeMac || 'MAC：' + b.badgeNo + ':00:00:00:00:00'}</div></div></div>
+                <div class="text-right"><div class="text-xs text-gray-400">状态</div><div class="text-sm font-medium ${statusBadgeColor}">${statusBadgeText}</div></div>
+              </div>
+            `;
+          }).join('') : '<div class="text-center text-gray-400 py-8">暂无关联园徽</div>'}</div>
+        </div>
+      `;
+    }
+
+    function refreshDetail() { showToast('园徽列表已刷新'); }
+
+    // ─────────────── 设备名册页 ───────────────
+    let rosterClassFilter = classList[0];
+
+    function renderRosterClassFilter() {
+      const container = document.getElementById('roster-class-filter');
+      container.innerHTML = classList.map(cls => `
+        <button onclick="setRosterClassFilter('${cls}')" class="btn-press flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium border transition-colors ${rosterClassFilter === cls ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-gray-600 border-gray-200'}">${cls}</button>
+      `).join('');
+    }
+
+    function setRosterClassFilter(cls) {
+      rosterClassFilter = cls;
+      renderRosterClassFilter();
+      renderRoster();
+    }
+
+    function getClassCurrentActivity(className) {
+      const fullClassName = '总园/' + className;
+      const now = new Date();
+      return activities.find(act => {
+        if (act.className !== fullClassName) return false;
+        const status = getActivityStatus(act);
+        return status.text === '未开始' || status.text === '进行中';
+      });
+    }
+
+    function renderRoster() {
+      const activityContainer = document.getElementById('roster-activity-card');
+      const studentContainer = document.getElementById('roster-student-list');
+      const currentAct = getClassCurrentActivity(rosterClassFilter);
+
+      // 没有当前活动 -> 空状态
+      if (!currentAct) {
+        activityContainer.innerHTML = '';
+        studentContainer.innerHTML = `
+          <div class="text-center py-16">
+            <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg class="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+              </svg>
+            </div>
+            <p class="text-sm text-gray-400">该班级当前暂无进行中的活动</p>
+          </div>
+        `;
+        return;
+      }
+
+      // 有活动 -> 展示活动卡片 + 学生名册
+      const status = getActivityStatus(currentAct);
+      const start = new Date(currentAct.startTime.replace(/\//g, '-').replace(' ', 'T'));
+      const end = new Date(start.getTime() + currentAct.duration * 60000);
+      const pad = n => String(n).padStart(2, '0');
+      const endTimeStr = `${end.getFullYear()}/${pad(end.getMonth()+1)}/${pad(end.getDate())} ${pad(end.getHours())}:${pad(end.getMinutes())}`;
+
+      activityContainer.innerHTML = `
+        <div onclick="goActivityDetail('${currentAct.id}', 'roster')" class="btn-press bg-white rounded-xl p-4 shadow-sm cursor-pointer relative overflow-hidden">
+          <div class="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500"></div>
+          <div class="pl-3">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-base font-semibold text-gray-900">${currentAct.name}</h3>
+              <span class="inline-flex px-2 py-0.5 rounded-md ${status.colorClass} text-xs font-medium border">${status.text}</span>
+            </div>
+            <div class="space-y-1">
+              <div class="flex items-center gap-2 text-sm text-gray-500">
+                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span>开始：${currentAct.startTime}</span>
+              </div>
+              <div class="flex items-center gap-2 text-sm text-gray-500">
+                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span>结束：${endTimeStr}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const students = getStudentsByClass(rosterClassFilter);
+      if (!students.length) {
+        studentContainer.innerHTML = '<div class="text-center text-gray-400 py-8">该班级暂无学生</div>';
+        return;
+      }
+      studentContainer.innerHTML = students.map(name => {
+        const badge = getBadgeByStudent(name);
+        const badgeText = badge ? `园徽-${badge.badgeNo}` : '未绑定';
+        const badgeColor = badge ? 'text-green-600' : 'text-gray-400';
+        return `
+          <div class="bg-white rounded-xl p-4 shadow-sm flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 flex-shrink-0 overflow-hidden">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+              </div>
+              <div class="text-base font-medium text-gray-900">${name}</div>
+            </div>
+            <div class="text-sm font-medium ${badgeColor}">${badgeText}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // 活动（任务）列表
+    // ═══════════════════════════════════════════════════════════
+
+    function getActivityStatus(act) {
+      const now = new Date();
+      const start = new Date(act.startTime.replace(/\//g, '-').replace(' ', 'T'));
+      const end = new Date(start.getTime() + act.duration * 60000);
+      if (now < start) return { text: '未开始', colorClass: 'bg-gray-50 text-gray-600 border-gray-100' };
+      if (now >= start && now < end) return { text: '进行中', colorClass: 'bg-green-50 text-green-600 border-green-100' };
+      return { text: '已结束', colorClass: 'bg-blue-50 text-blue-600 border-blue-100' };
+    }
+
+    function renderActivityTypeFilter() {
+      const container = document.getElementById('activity-type-filter');
+      container.innerHTML = activityTypes.map(type => `
+        <button onclick="setActivityTypeFilter('${type}')" class="btn-press flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium border transition-colors ${activityTypeFilter === type ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-white text-gray-600 border-gray-200'}">${type}</button>
+      `).join('');
+    }
+
+    function setActivityTypeFilter(type) {
+      activityTypeFilter = type;
+      renderActivityTypeFilter();
+      filterActivities();
+    }
+
+    function renderActivityClassFilter() {
+      const select = document.getElementById('activity-class-filter');
+      const allClasses = ['', ...classList.map(c => '总园/' + c)];
+      select.innerHTML = allClasses.map(c => `<option value="${c}">${c || '全部班级'}</option>`).join('');
+    }
+
+    function filterActivities() {
+      const keyword = document.getElementById('activity-search-input').value.trim().toLowerCase();
+      const className = document.getElementById('activity-class-filter').value;
+      const filtered = activities.filter(act => {
+        const matchKeyword = !keyword || act.name.toLowerCase().includes(keyword);
+        const matchClass = !className || act.className === className;
+        const matchType = activityTypeFilter === '全部' || act.type === activityTypeFilter;
+        return matchKeyword && matchClass && matchType;
+      });
+      // 按开始时间倒序排序
+      filtered.sort((a, b) => new Date(b.startTime.replace(/\//g, '-')) - new Date(a.startTime.replace(/\//g, '-')));
+      renderActivityList(filtered);
+    }
+
+    function renderActivityList(list) {
+      const container = document.getElementById('activity-list');
+      if (!list.length) {
+        container.innerHTML = `<div class="text-center py-12"><div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3"><svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div><p class="text-sm text-gray-500">暂无符合条件的活动</p></div>`;
+        return;
+      }
+      container.innerHTML = list.map(act => {
+        const status = getActivityStatus(act);
+        return `
+        <div class="bg-white rounded-xl p-4 shadow-sm relative">
+          <div onclick="goActivityDetail('${act.id}')" class="btn-press cursor-pointer">
+            <div class="flex items-start justify-between">
+              <div class="flex-1 min-w-0 pr-8">
+                <h3 class="text-base font-semibold text-gray-900 truncate">${act.name}</h3>
+                <div class="mt-2 flex items-center gap-2 text-sm text-gray-500">
+                  <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                  <span class="truncate">${act.className}</span>
+                </div>
+                <div class="mt-1 flex items-center gap-2 text-sm text-gray-500">
+                  <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                  <span>${act.startTime}</span>
+                </div>
+              </div>
+            </div>
+            <div class="mt-3 flex items-center gap-2 flex-wrap">
+              <span class="inline-flex px-2 py-0.5 rounded-md bg-amber-50 text-amber-600 text-xs font-medium border border-amber-100">${act.type}</span>
+              <span class="inline-flex px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 text-xs font-medium border border-blue-100">${act.duration}分钟</span>
+              <span class="inline-flex px-2 py-0.5 rounded-md ${status.colorClass} text-xs font-medium border">${status.text}</span>
+            </div>
+          </div>
+          <button onclick="event.stopPropagation(); openActivityDrawer('${act.id}')" class="btn-press absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/></svg>
+          </button>
+        </div>
+      `;
+      }).join('');
+    }
+
+    function openActivityDrawer(activityId) {
+      selectedActivity = activities.find(a => a.id === activityId);
+      if (!selectedActivity) return;
+      document.getElementById('activity-drawer-name').textContent = selectedActivity.name;
+      document.getElementById('activity-drawer').classList.add('show');
+    }
+
+    function closeActivityDrawer() {
+      document.getElementById('activity-drawer').classList.remove('show');
+    }
+
+    function actionEditActivity() {
+      closeActivityDrawer();
+      renderEditActivityForm();
+      goPage('edit-activity');
+    }
+
+    function actionDeleteActivity() {
+      closeActivityDrawer();
+      document.querySelector('#delete-modal h3').textContent = '请确认是否删除此活动';
+      document.querySelector('#delete-modal p').textContent = `活动「${selectedActivity.name}」删除后不可恢复`;
+      window._confirmDeleteCallback = confirmDeleteActivity;
+      openDeleteModal();
+    }
+
+    function confirmDeleteActivity() {
+      if (!selectedActivity) return;
+      activities = activities.filter(a => a.id !== selectedActivity.id);
+      filterActivities();
+      closeDeleteModal();
+      showToast('活动删除成功');
+      window._confirmDeleteCallback = null;
+      document.querySelector('#delete-modal h3').textContent = '请确认是否删除网关设备';
+      document.querySelector('#delete-modal p').textContent = '删除后不可恢复，请谨慎操作';
+    }
+
+    function goActivityDetail(activityId, source) {
+      selectedActivity = activities.find(a => a.id === activityId);
+      if (!selectedActivity) return;
+      activityDetailSource = source || 'activity';
+      renderActivityDetail();
+      goPage('activity-detail');
+    }
+
+    function renderActivityDetail() {
+      if (!selectedActivity) return;
+      const container = document.getElementById('activity-detail-content');
+      const act = selectedActivity;
+      const status = getActivityStatus(act);
+
+      // 活动报告 Banner
+      const isFirstActivity = act.id === 'a1';
+      const reportBanner = act.reportGenerated
+        ? `
+          <div onclick="${isFirstActivity ? `window.location.href='https://test.qiaozhihui.net/visitorApplication/childBadge/activity?sessionId=7'` : `goPage('activity-report')`}" class="btn-press rounded-xl p-4 shadow-sm cursor-pointer bg-gradient-to-r from-amber-50 to-white border border-amber-100 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              </div>
+              <div>
+                <div class="text-sm font-semibold text-gray-900">活动报告</div>
+                <div class="text-xs text-gray-500 mt-0.5">点击查看完整数据分析</div>
+              </div>
+            </div>
+            <span class="text-sm font-medium text-amber-600 flex items-center gap-1">查看报告 →</span>
+          </div>
+        `
+        : `
+          <div class="rounded-xl p-4 shadow-sm bg-gradient-to-r from-gray-50 to-white border border-gray-200 flex items-center justify-between opacity-80">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              </div>
+              <div>
+                <div class="text-sm font-semibold text-gray-700">活动报告</div>
+                <div class="text-xs text-gray-400 mt-0.5">报告生成中，请稍后查看</div>
+              </div>
+            </div>
+            <span class="text-sm text-gray-400">生成中…</span>
+          </div>
+        `;
+
+      container.innerHTML = `
+        <div class="bg-white rounded-xl p-4 shadow-sm space-y-3">
+          <div class="flex items-center justify-between"><span class="text-sm text-gray-500">活动名称</span><span class="text-base font-semibold text-gray-900">${act.name}</span></div>
+          <div class="border-t border-gray-100"></div>
+          <div class="flex items-center justify-between"><span class="text-sm text-gray-500">活动类型</span><span class="inline-flex px-2 py-0.5 rounded-md bg-amber-50 text-amber-600 text-sm font-medium border border-amber-100">${act.type}</span></div>
+          <div class="border-t border-gray-100"></div>
+          <div class="flex items-center justify-between"><span class="text-sm text-gray-500">活动班级</span><span class="text-base font-medium text-gray-900">${act.className}</span></div>
+          <div class="border-t border-gray-100"></div>
+          <div class="flex items-center justify-between"><span class="text-sm text-gray-500">开始时间</span><span class="text-base font-medium text-gray-900">${act.startTime}</span></div>
+          <div class="border-t border-gray-100"></div>
+          <div class="flex items-center justify-between"><span class="text-sm text-gray-500">活动时长</span><span class="text-base font-medium text-gray-900">${act.duration} 分钟</span></div>
+          <div class="border-t border-gray-100"></div>
+          <div class="flex items-center justify-between"><span class="text-sm text-gray-500">使用设备</span><span class="text-base font-medium text-gray-900">${act.useDevice}</span></div>
+          <div class="border-t border-gray-100"></div>
+          <div class="flex items-center justify-between"><span class="text-sm text-gray-500">活动状态</span><span class="inline-flex px-2 py-0.5 rounded-md ${status.colorClass} text-sm font-medium border">${status.text}</span></div>
+        </div>
+
+        ${reportBanner}
+
+        <div>
+          <div class="flex items-center gap-2 mb-3"><div class="w-1 h-4 bg-amber-500 rounded-full"></div><h2 class="text-base font-semibold text-gray-800">参与教师</h2><span class="text-sm text-gray-400">共 ${act.teachers.length} 人</span></div>
+          <div class="bg-white rounded-xl p-4 shadow-sm"><div class="flex flex-wrap gap-2">${act.teachers.map(t => `<span class="px-3 py-1 bg-gray-100 rounded-lg text-sm text-gray-700">${t}</span>`).join('')}</div></div>
+        </div>
+
+        <div>
+          <div class="flex items-center gap-2 mb-3"><div class="w-1 h-4 bg-emerald-500 rounded-full"></div><h2 class="text-base font-semibold text-gray-800">参与学生</h2><span class="text-sm text-gray-400">共 ${act.students.length} 人</span></div>
+          <div class="space-y-2">${act.students.map((s, idx) => {
+            const hasReport = act.studentReports[s];
+            const isFirstStudent = isFirstActivity && idx === 0;
+            const studentUrl = isFirstStudent
+              ? `https://test.qiaozhihui.net/visitorApplication/childBadge/single?sessionId=7&studentUserId=5016`
+              : `student-report`;
+            return `
+              <div onclick="${hasReport ? (isFirstStudent ? `window.location.href='${studentUrl}'` : `goPage('${studentUrl}')`) : `showToast('报告未生成完毕，请稍后查看')`}" class="btn-press bg-white rounded-xl p-3 shadow-sm flex items-center gap-3 cursor-pointer ${hasReport ? '' : 'opacity-80'}">
+                <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 flex-shrink-0 overflow-hidden">
+                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                </div>
+                <div class="flex-1"><div class="text-sm font-medium text-gray-900">${s}</div></div>
+                <div class="flex-shrink-0">${hasReport
+                  ? `<span class="text-sm font-medium text-blue-600">查看</span>`
+                  : `<span class="text-sm text-gray-400">生成中…</span>`}</div>
+              </div>
+            `;
+          }).join('')}</div>
+        </div>
+      `;
+    }
+
+    // 演示：切换报告状态
+    function toggleDemoReportState() {
+      if (!selectedActivity) return;
+      selectedActivity.reportGenerated = !selectedActivity.reportGenerated;
+      selectedActivity.students.forEach(s => {
+        selectedActivity.studentReports[s] = !selectedActivity.studentReports[s];
+      });
+      renderActivityDetail();
+      showToast('已切换演示状态');
+    }
+
+    // ─────────────── 创建活动引导弹窗 ───────────────
+    function openCreateGuide() {
+      document.getElementById('activity-guide-modal').classList.add('show');
+    }
+
+    function closeGuideAndGoCreate() {
+      document.getElementById('activity-guide-modal').classList.remove('show');
+      renderCreateActivityForm();
+      goPage('create-activity');
+    }
+
+    // ─────────────── 创建活动页 ───────────────
+    let createFormData = { name: '', types: [], startTime: '', duration: '', useDevice: '', useClass: '', badgeStatuses: {}, selectedStudents: [] };
+
+    let createCurrentStep = 1;
+
+    function renderCreateActivityForm() {
+      const now = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      const defaultTime = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      createFormData = { name: '', types: [], startTime: defaultTime, duration: '', useDevice: '', useClass: '', badgeStatuses: {}, selectedStudents: [] };
+      createCurrentStep = 1;
+
+      renderCreateStepIndicator();
+      renderCreateStepContent();
+      renderCreateStepFooter();
+
+      // 移除旧的浮动按钮
+      const oldFloat = document.getElementById('create-float-btn');
+      if (oldFloat) oldFloat.remove();
+    }
+
+    function renderCreateStepIndicator() {
+      const indicator = document.getElementById('create-step-indicator');
+      const steps = [
+        { label: '选择设备', num: 1 },
+        { label: '参与人员', num: 2 },
+        { label: '活动信息', num: 3 },
+      ];
+      indicator.innerHTML = `
+        <div class="step-indicator">
+          ${steps.map((s, i) => {
+            const isCurrent = createCurrentStep === s.num;
+            const isDone = createCurrentStep > s.num;
+            let dotClass = 'pending';
+            let labelClass = 'pending';
+            let dotContent = s.num;
+            if (isCurrent) { dotClass = 'current'; labelClass = 'current'; }
+            if (isDone) { dotClass = 'done'; labelClass = 'done'; dotContent = `<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>`; }
+            return `
+              <div class="step-item">
+                <div class="step-dot ${dotClass}">${dotContent}</div>
+                <span class="step-label ${labelClass}">${s.label}</span>
+              </div>
+              ${i < steps.length - 1 ? `<div class="step-line ${isDone ? 'done' : ''}"></div>` : ''}
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    function renderCreateStepContent() {
+      const container = document.getElementById('create-activity-form');
+      if (createCurrentStep === 1) {
+        container.innerHTML = renderCreateStep1();
+      } else if (createCurrentStep === 2) {
+        container.innerHTML = renderCreateStep2();
+        if (createFormData.useClass) renderCreateClassRosterInStep2();
+      } else {
+        container.innerHTML = renderCreateStep3();
+      }
+    }
+
+    function renderCreateStep1() {
+      return `
+        <div class="bg-white rounded-xl p-4 shadow-sm space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">使用设备 <span class="text-red-500">*</span></label>
+            <div class="grid grid-cols-4 gap-2" id="create-device-list">
+              ${devices.map((d, i) => `
+                <div onclick="selectCreateDevice('${d.name}')" id="create-device-${i}" class="btn-press compact-card">${d.name}</div>
+              `).join('')}
+            </div>
+          </div>
+          <div id="create-badge-status-area" class="hidden"></div>
+          <div id="create-upload-tip-area"></div>
+        </div>
+      `;
+    }
+
+    function renderCreateStep2() {
+      const device = devices.find(d => d.name === createFormData.useDevice);
+      const className = device ? device.className : '';
+      const students = getStudentsByClass(className);
+      let availableBadges = 0;
+      Object.values(createFormData.badgeStatuses).forEach(st => {
+        if (st.enabled && st.connected) availableBadges++;
+      });
+      const selectedCount = createFormData.selectedStudents.length;
+      const showWarning = availableBadges < selectedCount;
+      return `
+        <div class="bg-white rounded-xl p-4 shadow-sm space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">活动班级 <span class="text-red-500">*</span></label>
+            <div class="grid grid-cols-4 gap-2" id="create-class-list">
+              ${device ? `<div onclick="selectCreateClass('${device.className}')" id="create-class-0" class="btn-press compact-card ${createFormData.useClass ? 'selected' : ''}">${device.className}</div>` : ''}
+            </div>
+          </div>
+          <div id="create-class-roster-area" class="${createFormData.useClass ? '' : 'hidden'}"></div>
+          ${showWarning ? `
+            <div class="warning-tip">
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+              <span>可用园徽数量不足，请减少参与幼儿或检查园徽设备状态</span>
+            </div>
+          ` : ''}
+          <div class="flex items-center justify-between text-xs text-gray-500 px-1">
+            <span>可用园徽：${availableBadges} 个</span>
+            <span>参与幼儿：${selectedCount} 人</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderCreateStep3() {
+      return `
+        <div class="bg-white rounded-xl p-4 shadow-sm space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">活动名称 <span class="text-red-500">*</span></label>
+            <input id="create-name" type="text" maxlength="20" value="${createFormData.name}" oninput="updateCreateName(this.value)" class="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent" placeholder="请输入活动名称">
+            <div class="text-right text-xs text-gray-400 mt-1"><span id="create-name-count">${createFormData.name.length}</span>/20</div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">活动类型</label>
+            <div class="flex flex-wrap gap-2">${activityTypes.slice(1).map(t => `
+              <button onclick="toggleCreateType('${t}')" id="create-type-${t}" class="multi-tag ${createFormData.types.includes(t) ? 'selected' : ''}">${t}</button>
+            `).join('')}</div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">开始时间 <span class="text-red-500">*</span></label>
+            <input id="create-time" type="datetime-local" value="${createFormData.startTime}" onchange="createFormData.startTime=this.value" class="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">活动时长 <span class="text-red-500">*</span></label>
+            <div class="flex gap-2 flex-wrap">
+              ${[10,20,30,40,50,60,70,80,90].map(m => `
+                <button onclick="setCreateDuration(${m})" id="create-duration-${m}" class="duration-tag ${createFormData.duration === m ? 'selected' : ''}">${m}分钟</button>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderCreateStepFooter() {
+      const footer = document.getElementById('create-step-footer');
+      const prevLabel = createCurrentStep === 1 ? '取消' : '上一步';
+      const nextLabel = createCurrentStep === 3 ? '发布' : '下一步';
+      let nextDisabled = '';
+      if (createCurrentStep === 2) {
+        let availableBadges = 0;
+        Object.values(createFormData.badgeStatuses).forEach(st => {
+          if (st.enabled && st.connected) availableBadges++;
+        });
+        if (availableBadges < createFormData.selectedStudents.length) {
+          nextDisabled = 'disabled';
+        }
+      }
+      footer.innerHTML = `
+        <button onclick="goCreatePrevStep()" class="btn-prev">${prevLabel}</button>
+        <button onclick="goCreateNextStep()" class="btn-next ${nextDisabled}">${nextLabel}</button>
+      `;
+    }
+
+    function goCreatePrevStep() {
+      if (createCurrentStep === 1) {
+        goPage('activity');
+      } else {
+        createCurrentStep--;
+        renderCreateStepIndicator();
+        renderCreateStepContent();
+        renderCreateStepFooter();
+      }
+    }
+
+    function goCreateNextStep() {
+      if (createCurrentStep === 1) {
+        if (!createFormData.useDevice) { showToast('请选择使用设备'); return; }
+        createCurrentStep = 2;
+        if (createFormData.useClass) renderCreateClassRosterInStep2();
+      } else if (createCurrentStep === 2) {
+        if (!createFormData.useClass) { showToast('请选择活动班级'); return; }
+        if (createFormData.selectedStudents.length === 0) { showToast('请至少选择1名参与幼儿'); return; }
+        createCurrentStep = 3;
+      } else {
+        submitCreateActivity();
+        return;
+      }
+      renderCreateStepIndicator();
+      renderCreateStepContent();
+      renderCreateStepFooter();
+    }
+
+    function selectCreateDevice(deviceName) {
+      createFormData.useDevice = deviceName;
+      createFormData.useClass = '';
+      createFormData.selectedStudents = [];
+      devices.forEach((d, i) => {
+        const el = document.getElementById('create-device-' + i);
+        if (el) {
+          if (d.name === deviceName) el.classList.add('selected');
+          else el.classList.remove('selected');
+        }
+      });
+      renderCreateBadgeStatus(deviceName);
+    }
+
+    function renderCreateBadgeStatus(deviceName) {
+      const area = document.getElementById('create-badge-status-area');
+      const rosterItem = rosterData.find(d => d.name === deviceName);
+      const badges = rosterItem ? rosterItem.badges : [];
+      badges.forEach(b => {
+        if (!createFormData.badgeStatuses[b.badgeNo]) {
+          createFormData.badgeStatuses[b.badgeNo] = {
+            connected: Math.random() > 0.3,
+            battery: Math.floor(Math.random() * 100),
+            enabled: b.status !== 'disabled',
+            uploading: Math.random() > 0.7
+          };
+        }
+      });
+      area.classList.remove('hidden');
+      area.innerHTML = `
+        <div class="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <div class="w-1 h-3 bg-emerald-500 rounded-full"></div>
+              <span class="text-sm font-semibold text-gray-700">园徽状态</span>
+            </div>
+            <button onclick="refreshCreateBadgeStatus()" id="create-refresh-btn" class="btn-press flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-50 text-xs text-gray-600 border border-gray-200">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              刷新
+            </button>
+          </div>
+          <div class="grid grid-cols-6 gap-2">
+            ${badges.length > 0 ? badges.map(b => {
+              const st = createFormData.badgeStatuses[b.badgeNo] || { connected: false, enabled: true, battery: 0 };
+              const isDisabled = !st.enabled;
+              const connText = st.connected ? '已连接' : '断开';
+              const connClass = st.connected ? 'online' : 'offline';
+              const pct = st.battery || 0;
+              const barColor = pct >= 60 ? 'high' : (pct >= 20 ? 'medium' : 'low');
+              return `
+                <div onclick="toggleCreateBadge('${b.badgeNo}')" class="btn-press badge-grid-card ${isDisabled ? 'disabled' : ''}">
+                  <span class="badge-no">${b.badgeNo}</span>
+                  <span class="badge-conn ${connClass}">${connText}</span>
+                  <div class="badge-bar-wrap">
+                    <div class="badge-bar-fill ${barColor}" style="width:${pct}%"></div>
+                  </div>
+                </div>
+              `;
+            }).join('') : '<div class="col-span-6 text-center text-xs text-gray-400 py-2">暂无关联园徽</div>'}
+          </div>
+        </div>
+      `;
+      renderCreateUploadTip();
+    }
+
+    function renderCreateUploadTip() {
+      const area = document.getElementById('create-upload-tip-area');
+      const uploadingCount = Object.values(createFormData.badgeStatuses).filter(s => s.uploading).length;
+      if (uploadingCount === 0) { area.innerHTML = ''; return; }
+      area.innerHTML = `
+        <div class="upload-tip">
+          <div class="upload-tip-text">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            <span>当前有 ${uploadingCount} 个园徽正在上传录音数据，请等待上传完毕</span>
+          </div>
+          <button onclick="openStopUploadModal()" class="upload-tip-btn">终止上传</button>
+        </div>
+      `;
+    }
+
+    function toggleCreateBadge(badgeNo) {
+      const st = createFormData.badgeStatuses[badgeNo];
+      if (!st) return;
+      st.enabled = !st.enabled;
+      renderCreateBadgeStatus(createFormData.useDevice);
+    }
+
+    function refreshCreateBadgeStatus() {
+      const btn = document.getElementById('create-refresh-btn');
+      if (btn) {
+        const svg = btn.querySelector('svg');
+        svg.classList.add('spin-anim');
+        setTimeout(() => svg.classList.remove('spin-anim'), 600);
+      }
+      Object.keys(createFormData.badgeStatuses).forEach(key => {
+        createFormData.badgeStatuses[key].connected = Math.random() > 0.3;
+        createFormData.badgeStatuses[key].battery = Math.floor(Math.random() * 100);
+        createFormData.badgeStatuses[key].uploading = Math.random() > 0.7;
+      });
+      renderCreateBadgeStatus(createFormData.useDevice);
+      showToast('已刷新园徽状态');
+    }
+
+    function selectCreateClass(className) {
+      createFormData.useClass = className;
+      createFormData.selectedStudents = [];
+      const el = document.getElementById('create-class-0');
+      if (el) el.classList.add('selected');
+      renderCreateClassRosterInStep2();
+    }
+
+    function renderCreateClassRosterInStep2() {
+      const rosterArea = document.getElementById('create-class-roster-area');
+      const students = getStudentsByClass(createFormData.useClass);
+      if (createFormData.selectedStudents.length === 0) {
+        createFormData.selectedStudents = [...students];
+      }
+      const selectedCount = createFormData.selectedStudents.length;
+      rosterArea.classList.remove('hidden');
+      rosterArea.innerHTML = `
+        <div class="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <div class="w-1 h-3 bg-emerald-500 rounded-full"></div>
+              <span class="text-sm font-semibold text-gray-700">参与幼儿</span>
+            </div>
+            <span class="text-xs text-gray-400">${selectedCount}/${students.length}</span>
+          </div>
+          <div class="grid grid-cols-6 gap-2">
+            ${students.length > 0 ? students.map(s => {
+              const isSelected = createFormData.selectedStudents.includes(s);
+              return `
+                <div onclick="toggleCreateStudent('${s}')" class="btn-press roster-grid-card ${isSelected ? 'selected' : ''}">
+                  <span>${s}</span>
+                  <div class="check-icon">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                  </div>
+                </div>
+              `;
+            }).join('') : '<div class="col-span-6 text-center text-xs text-gray-400 py-2">该班级暂无学生</div>'}
+          </div>
+        </div>
+      `;
+    }
+
+    function toggleCreateStudent(studentName) {
+      const idx = createFormData.selectedStudents.indexOf(studentName);
+      if (idx > -1) createFormData.selectedStudents.splice(idx, 1);
+      else createFormData.selectedStudents.push(studentName);
+      renderCreateClassRosterInStep2();
+      // 实时更新步骤二的提示和按钮状态
+      renderCreateStepContent();
+      renderCreateStepFooter();
+    }
+
+    function updateCreateName(val) {
+      createFormData.name = val.trim();
+      const countEl = document.getElementById('create-name-count');
+      if (countEl) countEl.textContent = val.length;
+    }
+
+    function toggleCreateType(type) {
+      const idx = createFormData.types.indexOf(type);
+      if (idx > -1) createFormData.types.splice(idx, 1);
+      else createFormData.types.push(type);
+      const el = document.getElementById('create-type-' + type);
+      if (el) el.classList.toggle('selected');
+    }
+
+    function setCreateDuration(min) {
+      createFormData.duration = min;
+      [10,20,30,40,50,60,70,80,90].forEach(m => {
+        const el = document.getElementById('create-duration-' + m);
+        if (el) el.classList.remove('selected');
+      });
+      const el = document.getElementById('create-duration-' + min);
+      if (el) el.classList.add('selected');
+    }
+
+    function openStopUploadModal() {
+      document.getElementById('stop-upload-modal').classList.add('show');
+    }
+
+    function closeStopUploadModal() {
+      document.getElementById('stop-upload-modal').classList.remove('show');
+    }
+
+    function confirmStopUpload() {
+      Object.keys(createFormData.badgeStatuses).forEach(key => {
+        createFormData.badgeStatuses[key].uploading = false;
+      });
+      Object.keys(editBadgeStatuses).forEach(key => {
+        editBadgeStatuses[key].uploading = false;
+      });
+      closeStopUploadModal();
+      if (createFormData.useDevice && document.getElementById('create-badge-status-area')) {
+        renderCreateBadgeStatus(createFormData.useDevice);
+      }
+      if (editFormDevice && document.getElementById('edit-badge-status-area')) {
+        renderEditBadgeStatus(editFormDevice);
+      }
+      showToast('已终止所有上传任务');
+    }
+    function submitCreateActivity() {
+      const name = createFormData.name.trim();
+      if (!name) { showToast('活动名称不能为空'); return; }
+      if (name.length > 20) { showToast('活动名称不能超过20字'); return; }
+      if (activities.some(a => a.name === name)) { showToast('该活动名称已存在'); return; }
+      if (!createFormData.startTime) { showToast('请选择开始时间'); return; }
+      if (!createFormData.duration) { showToast('请选择活动时长'); return; }
+      if (!createFormData.useDevice) { showToast('请选择使用设备'); return; }
+      if (!createFormData.useClass) { showToast('请选择活动班级'); return; }
+
+      // 时间重叠校验演示
+      const overlap = activities.find(a => a.useDevice === createFormData.useDevice);
+      if (overlap && Math.random() > 0.7) {
+        showToast(`与${overlap.name}时间重叠，请调整后重新发布`);
+        return;
+      }
+
+      openPublishModal();
+    }
+
+    // ─────────────── 编辑活动页 ───────────────
+    let editFormDevice = '';
+    let editCurrentStep = 1;
+    let editBadgeStatuses = {};
+    let editSelectedStudents = [];
+
+    function renderEditActivityForm() {
+      if (!selectedActivity) return;
+      const act = selectedActivity;
+      const timeVal = act.startTime.replace(/\//g, '-').replace(' ', 'T');
+      editFormDevice = act.useDevice;
+      editCurrentStep = 1;
+      editBadgeStatuses = {};
+      editSelectedStudents = [];
+
+      // 回填 formData
+      createFormData.name = act.name;
+      createFormData.types = act.type ? [act.type] : [];
+      createFormData.startTime = timeVal;
+      createFormData.duration = act.duration;
+      createFormData.useDevice = act.useDevice;
+      createFormData.useClass = act.className.replace('总园/', '');
+      createFormData.selectedStudents = [...act.students];
+      createFormData.badgeStatuses = {};
+
+      renderEditStepIndicator();
+      renderEditStepContent();
+      renderEditStepFooter();
+
+      // 移除旧的浮动按钮
+      const oldFloat = document.getElementById('edit-float-btn');
+      if (oldFloat) oldFloat.remove();
+
+      // 自动渲染已选设备的园徽状态
+      if (act.useDevice) {
+        setTimeout(() => renderEditBadgeStatus(act.useDevice), 0);
+      }
+    }
+
+    function renderEditStepIndicator() {
+      const indicator = document.getElementById('edit-step-indicator');
+      const steps = [
+        { label: '选择设备', num: 1 },
+        { label: '参与人员', num: 2 },
+        { label: '活动信息', num: 3 },
+      ];
+      indicator.innerHTML = `
+        <div class="step-indicator">
+          ${steps.map((s, i) => {
+            const isCurrent = editCurrentStep === s.num;
+            const isDone = editCurrentStep > s.num;
+            let dotClass = 'pending';
+            let labelClass = 'pending';
+            let dotContent = s.num;
+            if (isCurrent) { dotClass = 'current'; labelClass = 'current'; }
+            if (isDone) { dotClass = 'done'; labelClass = 'done'; dotContent = `<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>`; }
+            return `
+              <div class="step-item">
+                <div class="step-dot ${dotClass}">${dotContent}</div>
+                <span class="step-label ${labelClass}">${s.label}</span>
+              </div>
+              ${i < steps.length - 1 ? `<div class="step-line ${isDone ? 'done' : ''}"></div>` : ''}
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    function renderEditStepContent() {
+      const container = document.getElementById('edit-activity-form');
+      if (editCurrentStep === 1) {
+        container.innerHTML = renderEditStep1();
+      } else if (editCurrentStep === 2) {
+        container.innerHTML = renderEditStep2();
+        const device = devices.find(d => d.name === editFormDevice);
+        if (device && editSelectedStudents.length > 0) renderEditClassRosterInStep2(device.className, null);
+      } else {
+        container.innerHTML = renderEditStep3();
+      }
+    }
+
+    function renderEditStep1() {
+      const act = selectedActivity;
+      return `
+        <div class="bg-white rounded-xl p-4 shadow-sm space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">使用设备 <span class="text-red-500">*</span></label>
+            <div class="grid grid-cols-4 gap-2" id="edit-device-list">
+              ${devices.map((d, i) => `
+                <div onclick="selectEditDevice('${d.name}')" id="edit-device-${i}" class="btn-press compact-card ${act.useDevice === d.name ? 'selected' : ''}">${d.name}</div>
+              `).join('')}
+            </div>
+          </div>
+          <div id="edit-badge-status-area" class="${act.useDevice ? '' : 'hidden'}"></div>
+          <div id="edit-upload-tip-area"></div>
+        </div>
+      `;
+    }
+
+    function renderEditStep2() {
+      const device = devices.find(d => d.name === editFormDevice);
+      const className = device ? device.className : '';
+      const students = getStudentsByClass(className);
+      let availableBadges = 0;
+      Object.values(editBadgeStatuses).forEach(st => {
+        if (st.enabled && st.connected) availableBadges++;
+      });
+      const selectedCount = editSelectedStudents.length;
+      const showWarning = availableBadges < selectedCount;
+      return `
+        <div class="bg-white rounded-xl p-4 shadow-sm space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">活动班级 <span class="text-red-500">*</span></label>
+            <div class="grid grid-cols-4 gap-2" id="edit-class-list">
+              ${device ? `<div onclick="selectEditClass('${device.className}')" id="edit-class-0" class="btn-press compact-card ${editFormDevice === selectedActivity.useDevice ? 'selected' : ''}">${device.className}</div>` : ''}
+            </div>
+          </div>
+          <div id="edit-class-roster-area" class="${editFormDevice ? '' : 'hidden'}"></div>
+          ${showWarning ? `
+            <div class="warning-tip">
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+              <span>可用园徽数量不足，请减少参与幼儿或检查园徽设备状态</span>
+            </div>
+          ` : ''}
+          <div class="flex items-center justify-between text-xs text-gray-500 px-1">
+            <span>可用园徽：${availableBadges} 个</span>
+            <span>参与幼儿：${selectedCount} 人</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderEditStep3() {
+      const act = selectedActivity;
+      return `
+        <div class="bg-white rounded-xl p-4 shadow-sm space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">活动名称 <span class="text-red-500">*</span></label>
+            <input id="edit-act-name" type="text" maxlength="20" value="${act.name}" class="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">活动类型</label>
+            <div class="flex flex-wrap gap-2">${activityTypes.slice(1).map(t => `
+              <button onclick="toggleEditType(this, '${t}')" class="multi-tag ${act.type === t ? 'selected' : ''}">${t}</button>
+            `).join('')}</div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">开始时间 <span class="text-red-500">*</span></label>
+            <input id="edit-act-time" type="datetime-local" value="${act.startTime.replace(/\//g, '-').replace(' ', 'T')}" class="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">活动时长 <span class="text-red-500">*</span></label>
+            <div class="flex gap-2 flex-wrap">
+              ${[10,20,30,40,50,60,70,80,90].map(m => `
+                <button onclick="setEditDuration(this, ${m})" class="duration-tag ${act.duration === m ? 'selected' : ''}">${m}分钟</button>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderEditStepFooter() {
+      const footer = document.getElementById('edit-step-footer');
+      const prevLabel = editCurrentStep === 1 ? '取消' : '上一步';
+      const nextLabel = editCurrentStep === 3 ? '保存' : '下一步';
+      let nextDisabled = '';
+      if (editCurrentStep === 2) {
+        let availableBadges = 0;
+        Object.values(editBadgeStatuses).forEach(st => {
+          if (st.enabled && st.connected) availableBadges++;
+        });
+        if (availableBadges < editSelectedStudents.length) {
+          nextDisabled = 'disabled';
+        }
+      }
+      footer.innerHTML = `
+        <button onclick="goEditPrevStep()" class="btn-prev">${prevLabel}</button>
+        <button onclick="goEditNextStep()" class="btn-next ${nextDisabled}">${nextLabel}</button>
+      `;
+    }
+
+    function goEditPrevStep() {
+      if (editCurrentStep === 1) {
+        goPage('activity');
+      } else {
+        editCurrentStep--;
+        renderEditStepIndicator();
+        renderEditStepContent();
+        renderEditStepFooter();
+      }
+    }
+
+    function goEditNextStep() {
+      if (editCurrentStep === 1) {
+        if (!editFormDevice) { showToast('请选择使用设备'); return; }
+        editCurrentStep = 2;
+        if (editFormDevice === selectedActivity.useDevice) {
+          const device = devices.find(d => d.name === editFormDevice);
+          if (device) renderEditClassRosterInStep2(device.className, selectedActivity.students);
+        }
+      } else if (editCurrentStep === 2) {
+        const device = devices.find(d => d.name === editFormDevice);
+        if (!device) { showToast('请选择活动班级'); return; }
+        if (editSelectedStudents.length === 0) { showToast('请至少选择1名参与幼儿'); return; }
+        editCurrentStep = 3;
+      } else {
+        submitEditActivity();
+        return;
+      }
+      renderEditStepIndicator();
+      renderEditStepContent();
+      renderEditStepFooter();
+    }
+
+    function selectEditDevice(deviceName) {
+      editFormDevice = deviceName;
+      editSelectedStudents = [];
+      devices.forEach((d, i) => {
+        const el = document.getElementById('edit-device-' + i);
+        if (el) {
+          if (d.name === deviceName) el.classList.add('selected');
+          else el.classList.remove('selected');
+        }
+      });
+      renderEditBadgeStatus(deviceName);
+    }
+
+    function renderEditBadgeStatus(deviceName) {
+      const area = document.getElementById('edit-badge-status-area');
+      const rosterItem = rosterData.find(d => d.name === deviceName);
+      const badges = rosterItem ? rosterItem.badges : [];
+      badges.forEach(b => {
+        if (!editBadgeStatuses[b.badgeNo]) {
+          editBadgeStatuses[b.badgeNo] = {
+            connected: Math.random() > 0.3,
+            battery: Math.floor(Math.random() * 100),
+            enabled: b.status !== 'disabled',
+            uploading: Math.random() > 0.7
+          };
+        }
+      });
+      area.classList.remove('hidden');
+      area.innerHTML = `
+        <div class="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <div class="w-1 h-3 bg-emerald-500 rounded-full"></div>
+              <span class="text-sm font-semibold text-gray-700">园徽状态</span>
+            </div>
+            <button onclick="refreshEditBadgeStatus()" id="edit-refresh-btn" class="btn-press flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-50 text-xs text-gray-600 border border-gray-200">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              刷新
+            </button>
+          </div>
+          <div class="grid grid-cols-6 gap-2">
+            ${badges.length > 0 ? badges.map(b => {
+              const st = editBadgeStatuses[b.badgeNo] || { connected: false, enabled: true, battery: 0 };
+              const isDisabled = !st.enabled;
+              const connText = st.connected ? '已连接' : '断开';
+              const connClass = st.connected ? 'online' : 'offline';
+              const pct = st.battery || 0;
+              const barColor = pct >= 60 ? 'high' : (pct >= 20 ? 'medium' : 'low');
+              return `
+                <div onclick="toggleEditBadge('${b.badgeNo}')" class="btn-press badge-grid-card ${isDisabled ? 'disabled' : ''}">
+                  <span class="badge-no">${b.badgeNo}</span>
+                  <span class="badge-conn ${connClass}">${connText}</span>
+                  <div class="badge-bar-wrap">
+                    <div class="badge-bar-fill ${barColor}" style="width:${pct}%"></div>
+                  </div>
+                </div>
+              `;
+            }).join('') : '<div class="col-span-6 text-center text-xs text-gray-400 py-2">暂无关联园徽</div>'}
+          </div>
+        </div>
+      `;
+      renderEditUploadTip();
+    }
+
+    function renderEditUploadTip() {
+      const area = document.getElementById('edit-upload-tip-area');
+      if (!area) return;
+      const uploadingCount = Object.values(editBadgeStatuses).filter(s => s.uploading).length;
+      if (uploadingCount === 0) { area.innerHTML = ''; return; }
+      area.innerHTML = `
+        <div class="upload-tip">
+          <div class="upload-tip-text">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            <span>当前有 ${uploadingCount} 个园徽正在上传录音数据，请等待上传完毕</span>
+          </div>
+          <button onclick="openStopUploadModal()" class="upload-tip-btn">终止上传</button>
+        </div>
+      `;
+    }
+
+    function toggleEditBadge(badgeNo) {
+      const st = editBadgeStatuses[badgeNo];
+      if (!st) return;
+      st.enabled = !st.enabled;
+      renderEditBadgeStatus(editFormDevice);
+    }
+
+    function refreshEditBadgeStatus() {
+      const btn = document.getElementById('edit-refresh-btn');
+      if (btn) {
+        const svg = btn.querySelector('svg');
+        svg.classList.add('spin-anim');
+        setTimeout(() => svg.classList.remove('spin-anim'), 600);
+      }
+      Object.keys(editBadgeStatuses).forEach(key => {
+        editBadgeStatuses[key].connected = Math.random() > 0.3;
+        editBadgeStatuses[key].battery = Math.floor(Math.random() * 100);
+        editBadgeStatuses[key].uploading = Math.random() > 0.7;
+      });
+      renderEditBadgeStatus(editFormDevice);
+      showToast('已刷新园徽状态');
+    }
+
+    function selectEditClass(className) {
+      editSelectedStudents = [];
+      const el = document.getElementById('edit-class-0');
+      if (el) el.classList.add('selected');
+      renderEditClassRosterInStep2(className, selectedActivity ? selectedActivity.students : []);
+    }
+
+    function renderEditClassRosterInStep2(className, defaultStudents) {
+      const rosterArea = document.getElementById('edit-class-roster-area');
+      const students = getStudentsByClass(className);
+      if (editSelectedStudents.length === 0 && defaultStudents) {
+        editSelectedStudents = students.filter(s => defaultStudents.includes(s));
+      }
+      const selectedCount = editSelectedStudents.length;
+      rosterArea.classList.remove('hidden');
+      rosterArea.innerHTML = `
+        <div class="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <div class="w-1 h-3 bg-emerald-500 rounded-full"></div>
+              <span class="text-sm font-semibold text-gray-700">参与幼儿</span>
+            </div>
+            <span class="text-xs text-gray-400">${selectedCount}/${students.length}</span>
+          </div>
+          <div class="grid grid-cols-6 gap-2">
+            ${students.length > 0 ? students.map(s => {
+              const isSelected = editSelectedStudents.includes(s);
+              return `
+                <div onclick="toggleEditStudent('${s}')" class="btn-press roster-grid-card ${isSelected ? 'selected' : ''}">
+                  <span>${s}</span>
+                  <div class="check-icon">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                  </div>
+                </div>
+              `;
+            }).join('') : '<div class="col-span-6 text-center text-xs text-gray-400 py-2">该班级暂无学生</div>'}
+          </div>
+        </div>
+      `;
+    }
+
+    function toggleEditStudent(studentName) {
+      const idx = editSelectedStudents.indexOf(studentName);
+      if (idx > -1) editSelectedStudents.splice(idx, 1);
+      else editSelectedStudents.push(studentName);
+      const device = devices.find(d => d.name === editFormDevice);
+      renderEditClassRosterInStep2(device ? device.className : '', null);
+      // 实时更新步骤二的提示和按钮状态
+      renderEditStepContent();
+      renderEditStepFooter();
+    }
+
+    function toggleEditType(btn, type) {
+      btn.classList.toggle('selected');
+    }
+
+    function setEditDuration(btn, min) {
+      btn.parentElement.querySelectorAll('.duration-tag').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    }
+
+    function submitEditActivity() {
+      const name = document.getElementById('edit-act-name').value.trim();
+      if (!name) { showToast('活动名称不能为空'); return; }
+      if (name.length > 20) { showToast('活动名称不能超过20字'); return; }
+      if (activities.some(a => a.name === name && a.id !== selectedActivity.id)) { showToast('该活动名称已存在'); return; }
+      const time = document.getElementById('edit-act-time').value;
+      if (!time) { showToast('请选择开始时间'); return; }
+      const durationBtn = document.querySelector('#edit-activity-form .duration-tag.selected');
+      if (!durationBtn) { showToast('请选择活动时长'); return; }
+      if (!editFormDevice) { showToast('请选择使用设备'); return; }
+      const device = devices.find(d => d.name === editFormDevice);
+      if (!device) { showToast('请选择活动班级'); return; }
+      if (editSelectedStudents.length === 0) { showToast('请至少选择1名参与幼儿'); return; }
+
+      selectedActivity.name = name;
+      selectedActivity.startTime = time.replace('T', ' ').replace(/-/g, '/');
+      selectedActivity.useDevice = editFormDevice;
+      selectedActivity.duration = parseInt(durationBtn.textContent);
+      const selectedTypes = Array.from(document.querySelectorAll('#edit-activity-form .multi-tag.selected')).map(b => b.textContent);
+      selectedActivity.type = selectedTypes[0] || selectedActivity.type;
+      selectedActivity.className = '总园/' + device.className;
+      selectedActivity.students = editSelectedStudents.length > 0 ? [...editSelectedStudents] : selectedActivity.students;
+
+      filterActivities();
+      goPage('activity');
+      showToast('活动修改成功');
+    }
+    // ─────────────── 发布进度弹窗 ───────────────
+    let publishTimer = null;
+
+    function openPublishModal() {
+      document.getElementById('activity-publish-modal').classList.add('show');
+      document.getElementById('publish-modal-subtitle').textContent = '正在下发活动到硬件设备…';
+      startPublishSimulation();
+    }
+
+    function closePublishModal() {
+      document.getElementById('activity-publish-modal').classList.remove('show');
+      if (publishTimer) clearInterval(publishTimer);
+    }
+
+    function startPublishSimulation() {
+      const steps = [
+        { id: 'step1', label: '检查设备在线状态' },
+        { id: 'step2', label: '检查园徽链接状态' },
+        { id: 'step3', label: '发布到园徽' },
+      ];
+      let currentStep = 0;
+      let publishedCount = 0;
+      const totalCount = 4; // 演示固定数量
+
+      function renderSteps() {
+        const container = document.getElementById('publish-steps');
+        container.innerHTML = steps.map((s, idx) => {
+          let iconHtml = '';
+          let textClass = 'text-gray-900';
+          if (idx < currentStep) {
+            iconHtml = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>`;
+            textClass = 'text-gray-400';
+          } else if (idx === currentStep) {
+            iconHtml = `<div class="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>`;
+            textClass = 'text-amber-600';
+          } else {
+            iconHtml = `<div class="w-2 h-2 rounded-full bg-gray-300"></div>`;
+            textClass = 'text-gray-400';
+          }
+
+          let label = s.label;
+          if (s.id === 'step3' && idx <= currentStep) {
+            label = `发布到园徽 ${publishedCount}/${totalCount}`;
+          }
+
+          const iconClass = idx < currentStep ? 'success' : (idx === currentStep ? 'running' : 'pending');
+          return `
+            <div class="publish-step">
+              <div class="publish-step-icon ${iconClass}">${iconHtml}</div>
+              <div class="flex-1"><div class="text-sm font-medium ${textClass}">${label}</div></div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      function renderFooter(state) {
+        const footer = document.getElementById('publish-modal-footer');
+        if (state === 'running') {
+          footer.innerHTML = '';
+        } else if (state === 'success') {
+          footer.innerHTML = `<button onclick="finishPublishSuccess()" class="btn-press w-full py-3 rounded-xl bg-amber-500 text-white text-base font-medium shadow-sm">返回</button>`;
+        } else if (state === 'fail') {
+          footer.innerHTML = `
+            <div class="flex gap-3">
+              <button onclick="closePublishModal()" class="btn-press flex-1 py-3 rounded-xl bg-gray-100 text-gray-700 text-base font-medium">取消</button>
+              <button onclick="restartPublish()" class="btn-press flex-1 py-3 rounded-xl bg-amber-500 text-white text-base font-medium shadow-sm">重试</button>
+            </div>
+          `;
+        }
+      }
+
+      renderSteps();
+      renderFooter('running');
+
+      publishTimer = setInterval(() => {
+        if (demoPublishFail && currentStep === 1) {
+          clearInterval(publishTimer);
+          steps[1].label = '检查园徽链接状态';
+          const container = document.getElementById('publish-steps');
+          const html = steps.map((s, idx) => {
+            let iconHtml = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>`;
+            let textClass = 'text-gray-400';
+            let iconClass = 'success';
+            if (idx === 1) {
+              iconHtml = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>`;
+              textClass = 'text-red-600';
+              iconClass = 'error';
+            } else if (idx > 1) {
+              iconHtml = `<div class="w-2 h-2 rounded-full bg-gray-300"></div>`;
+              textClass = 'text-gray-400';
+              iconClass = 'pending';
+            }
+            return `
+              <div class="publish-step">
+                <div class="publish-step-icon ${iconClass}">${iconHtml}</div>
+                <div class="flex-1"><div class="text-sm font-medium ${textClass}">${s.label}</div></div>
+              </div>
+            `;
+          }).join('');
+          container.innerHTML = html;
+          document.getElementById('publish-modal-subtitle').textContent = '发布失败：园徽链接异常';
+          renderFooter('fail');
+          return;
+        }
+
+        if (currentStep === 2) {
+          publishedCount++;
+          renderSteps();
+          if (publishedCount >= totalCount) {
+            clearInterval(publishTimer);
+            currentStep++;
+            renderSteps();
+            document.getElementById('publish-modal-subtitle').textContent = '活动发布成功';
+            renderFooter('success');
+          }
+        } else {
+          currentStep++;
+          renderSteps();
+        }
+      }, 800);
+    }
+
+    function restartPublish() {
+      startPublishSimulation();
+    }
+
+    function finishPublishSuccess() {
+      closePublishModal();
+      const name = createFormData.name;
+      const type = createFormData.types[0] || '美术';
+      const timeStr = createFormData.startTime.replace('T', ' ').replace(/-/g, '/');
+      const className = createFormData.useClass ? '总园/' + createFormData.useClass : '总园/小一班';
+      const students = createFormData.selectedStudents.length > 0 ? createFormData.selectedStudents : ['王小明', '李小红', '张小刚'];
+      const studentReports = {};
+      students.forEach(s => studentReports[s] = false);
+      activities.unshift({
+        id: 'a' + Date.now(),
+        name, type,
+        className,
+        startTime: timeStr,
+        duration: createFormData.duration,
+        teachers: ['当前用户'],
+        students,
+        useDevice: createFormData.useDevice,
+        reportGenerated: false,
+        studentReports
+      });
+      goPage('activity');
+      filterActivities();
+      showToast('活动发布成功');
+    }
+
+    // ─────────────── 园徽操作抽屉 ───────────────
+    let selectedBadgeInfo = null; // { deviceId, badgeNo }
+
+    function openBadgeDrawer(deviceId, badgeNo) {
+      const device = rosterData.find(d => d.id === deviceId);
+      const badge = device ? device.badges.find(b => b.badgeNo === badgeNo) : null;
+      if (!badge) return;
+      selectedBadgeInfo = { deviceId, badgeNo };
+      document.getElementById('badge-drawer-name').textContent = '园徽-' + badgeNo;
+
+      // 根据园徽状态动态展示按钮
+      const toggleBtn = document.getElementById('badge-btn-toggle');
+      const unbindBtn = document.getElementById('badge-btn-unbind');
+      const bindBtn = document.getElementById('badge-btn-bind');
+
+      const isDisabled = badge.status === 'disabled';
+      const hasHolder = !!badge.holder;
+
+      toggleBtn.textContent = isDisabled ? '启用' : '禁用';
+      toggleBtn.style.display = 'block';
+
+      if (isDisabled) {
+        unbindBtn.style.display = 'none';
+        bindBtn.style.display = 'none';
+      } else {
+        unbindBtn.style.display = hasHolder ? 'block' : 'none';
+        bindBtn.style.display = hasHolder ? 'none' : 'block';
+      }
+
+      document.getElementById('badge-drawer').classList.add('show');
+    }
+
+    function closeBadgeDrawer() {
+      document.getElementById('badge-drawer').classList.remove('show');
+      selectedBadgeInfo = null;
+    }
+
+    function actionToggleBadge() {
+      if (!selectedBadgeInfo) return;
+      const { deviceId, badgeNo } = selectedBadgeInfo;
+      const device = rosterData.find(d => d.id === deviceId);
+      const badge = device ? device.badges.find(b => b.badgeNo === badgeNo) : null;
+      if (!badge) return;
+
+      if (badge.status === 'disabled') {
+        badge.status = 'normal';
+        renderRoster(); renderDetail();
+        closeBadgeDrawer();
+        showToast('园徽已启用');
+      } else {
+        badge.status = 'disabled';
+        badge.holder = null;
+        renderRoster(); renderDetail();
+        closeBadgeDrawer();
+        showToast('园徽已禁用');
+      }
+    }
+
+    function actionUnbindBadge() {
+      if (!selectedBadgeInfo) return;
+      const { deviceId, badgeNo } = selectedBadgeInfo;
+      const device = rosterData.find(d => d.id === deviceId);
+      const badge = device ? device.badges.find(b => b.badgeNo === badgeNo) : null;
+      if (badge) {
+        badge.holder = null;
+      }
+      renderRoster();
+      closeBadgeDrawer();
+      showToast('已解除绑定');
+    }
+
+    function actionBindBadge() {
+      const savedInfo = selectedBadgeInfo;
+      closeBadgeDrawer();
+      selectedBadgeInfo = savedInfo;
+      if (!selectedBadgeInfo) return;
+      openStudentSelectModal();
+    }
+
+    // ─────────────── 设备详情页园徽操作抽屉 ───────────────
+    let selectedDetailBadgeInfo = null;
+
+    function openDetailBadgeDrawer(deviceId, badgeNo) {
+      const device = rosterData.find(d => d.id === deviceId);
+      const badge = device ? device.badges.find(b => b.badgeNo === badgeNo) : null;
+      if (!badge) return;
+      selectedDetailBadgeInfo = { deviceId, badgeNo };
+      document.getElementById('detail-badge-drawer-name').textContent = '园徽-' + badgeNo;
+      document.getElementById('detail-badge-btn-toggle').textContent = badge.status === 'disabled' ? '启用' : '禁用';
+      document.getElementById('detail-badge-drawer').classList.add('show');
+    }
+
+    function closeDetailBadgeDrawer() {
+      document.getElementById('detail-badge-drawer').classList.remove('show');
+      selectedDetailBadgeInfo = null;
+    }
+
+    function actionToggleDetailBadge() {
+      if (!selectedDetailBadgeInfo) return;
+      const { deviceId, badgeNo } = selectedDetailBadgeInfo;
+      const device = rosterData.find(d => d.id === deviceId);
+      const badge = device ? device.badges.find(b => b.badgeNo === badgeNo) : null;
+      if (!badge) return;
+      if (badge.status === 'disabled') {
+        badge.status = 'normal';
+        renderDetail();
+        closeDetailBadgeDrawer();
+        showToast('园徽已启用');
+      } else {
+        badge.status = 'disabled';
+        badge.holder = null;
+        renderDetail();
+        closeDetailBadgeDrawer();
+        showToast('园徽已禁用');
+      }
+    }
+
+    // ─────────────── 学生选择弹窗 ───────────────
+    let selectedStudentName = null;
+
+    function getUnboundStudents(deviceId) {
+      const device = rosterData.find(d => d.id === deviceId);
+      if (!device) return [];
+      const boundHolders = new Set(device.badges.map(b => b.holder).filter(Boolean));
+      return childrenNames.filter(name => !boundHolders.has(name));
+    }
+
+    function openStudentSelectModal() {
+      if (!selectedBadgeInfo) return;
+      const { deviceId, badgeNo } = selectedBadgeInfo;
+      const device = rosterData.find(d => d.id === deviceId);
+      const unboundStudents = getUnboundStudents(deviceId);
+      selectedStudentName = null;
+      document.getElementById('bind-badge-name').textContent = '园徽-' + badgeNo;
+      document.getElementById('confirm-student-btn').disabled = true;
+
+      const listContainer = document.getElementById('student-select-list');
+      const emptyTip = document.getElementById('student-select-empty');
+
+      if (!unboundStudents.length) {
+        listContainer.innerHTML = '';
+        emptyTip.classList.remove('hidden');
+      } else {
+        emptyTip.classList.add('hidden');
+        listContainer.innerHTML = unboundStudents.map(name => `
+          <div onclick="selectStudentName('${name}')" id="student-opt-${name}" class="btn-press flex items-center justify-between px-4 py-3 border-b border-gray-100 last:border-b-0 cursor-pointer">
+            <span class="text-base text-gray-900">${name}</span>
+            <svg id="student-check-${name}" class="w-5 h-5 text-blue-500 opacity-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          </div>
+        `).join('');
+      }
+
+      document.getElementById('student-select-modal').classList.add('show');
+    }
+
+    function selectStudentName(name) {
+      selectedStudentName = name;
+      document.getElementById('confirm-student-btn').disabled = false;
+      // 清除其他选中态
+      childrenNames.forEach(n => {
+        const check = document.getElementById('student-check-' + n);
+        const row = document.getElementById('student-opt-' + n);
+        if (check) check.classList.add('opacity-0');
+        if (row) row.classList.remove('bg-blue-50');
+      });
+      const check = document.getElementById('student-check-' + name);
+      const row = document.getElementById('student-opt-' + name);
+      if (check) check.classList.remove('opacity-0');
+      if (row) row.classList.add('bg-blue-50');
+    }
+
+    function closeStudentSelectModal() {
+      document.getElementById('student-select-modal').classList.remove('show');
+      selectedStudentName = null;
+    }
+
+    function confirmBindStudent() {
+      if (!selectedBadgeInfo || !selectedStudentName) return;
+      const { deviceId, badgeNo } = selectedBadgeInfo;
+      const device = rosterData.find(d => d.id === deviceId);
+      const badge = device ? device.badges.find(b => b.badgeNo === badgeNo) : null;
+      if (badge) {
+        badge.holder = selectedStudentName;
+        badge.status = 'normal';
+      }
+      renderRoster();
+      closeStudentSelectModal();
+      showToast(`园徽-${badgeNo} 已绑定 ${selectedStudentName}`);
+    }
+
+    // ─────────────── 更换绑定学生弹窗（创建/编辑活动页用）───────────────
+    let rebindBadgeInfo = null;
+    let rebindSelectedStudent = null;
+    let rebindContext = 'create'; // 'create' or 'edit'
+
+    function openRebindModal(deviceName, badgeNo) {
+      rebindBadgeInfo = { deviceName, badgeNo };
+      rebindSelectedStudent = null;
+      document.getElementById('confirm-rebind-btn').disabled = true;
+      const device = rosterData.find(d => d.name === deviceName);
+      const badge = device ? device.badges.find(b => b.badgeNo === badgeNo) : null;
+      if (!badge) return;
+
+      document.getElementById('rebind-current-holder').innerHTML = badge.holder ? `当前绑定：<span class="font-medium text-gray-700">${badge.holder}</span>` : '<span class="text-gray-400">当前未绑定</span>';
+
+      // 获取该班级全部学生
+      const allStudents = childrenNames.slice(0, 20);
+      const listContainer = document.getElementById('rebind-student-list');
+      const emptyTip = document.getElementById('rebind-empty');
+      listContainer.innerHTML = allStudents.map(name => `
+        <div onclick="selectRebindStudent('${name}')" id="rebind-opt-${name}" class="btn-press flex items-center justify-between px-4 py-3 border-b border-gray-100 last:border-b-0 cursor-pointer">
+          <span class="text-base text-gray-900">${name}</span>
+          <svg id="rebind-check-${name}" class="w-5 h-5 text-blue-500 opacity-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+        </div>
+      `).join('');
+      emptyTip.classList.add('hidden');
+      document.getElementById('rebind-modal').classList.add('show');
+    }
+
+    function closeRebindModal() {
+      document.getElementById('rebind-modal').classList.remove('show');
+      rebindBadgeInfo = null;
+      rebindSelectedStudent = null;
+    }
+
+    function selectRebindStudent(name) {
+      rebindSelectedStudent = name;
+      document.getElementById('confirm-rebind-btn').disabled = false;
+      childrenNames.forEach(n => {
+        const check = document.getElementById('rebind-check-' + n);
+        const row = document.getElementById('rebind-opt-' + n);
+        if (check) check.classList.add('opacity-0');
+        if (row) row.classList.remove('bg-blue-50');
+      });
+      const check = document.getElementById('rebind-check-' + name);
+      const row = document.getElementById('rebind-opt-' + name);
+      if (check) check.classList.remove('opacity-0');
+      if (row) row.classList.add('bg-blue-50');
+    }
+
+    function confirmRebind() {
+      if (!rebindBadgeInfo || !rebindSelectedStudent) return;
+      const { deviceName, badgeNo } = rebindBadgeInfo;
+      const device = rosterData.find(d => d.name === deviceName);
+      const badge = device ? device.badges.find(b => b.badgeNo === badgeNo) : null;
+      if (badge) {
+        badge.holder = rebindSelectedStudent;
+        badge.status = 'normal';
+      }
+      closeRebindModal();
+      showToast(`园徽-${badgeNo} 已换绑 ${rebindSelectedStudent}`);
+      // 刷新园徽状态展示
+      if (createFormData.useDevice) {
+        renderCreateBadgeStatus(createFormData.useDevice);
+      }
+      if (editFormDevice) {
+        renderEditBadgeStatus(editFormDevice);
+      }
+    }
+
+    function confirmRebindUnbind() {
+      if (!rebindBadgeInfo) return;
+      const { deviceName, badgeNo } = rebindBadgeInfo;
+      const device = rosterData.find(d => d.name === deviceName);
+      const badge = device ? device.badges.find(b => b.badgeNo === badgeNo) : null;
+      if (badge) {
+        badge.holder = null;
+      }
+      closeRebindModal();
+      showToast(`园徽-${badgeNo} 已解绑`);
+      if (createFormData.useDevice) {
+        renderCreateBadgeStatus(createFormData.useDevice);
+      }
+      if (editFormDevice) {
+        renderEditBadgeStatus(editFormDevice);
+      }
+    }
+
+    // ─────────────── 初始化 ───────────────
+    renderDevices();
+    renderRosterClassFilter();
+    renderRoster();
+    renderActivityTypeFilter();
+    renderActivityClassFilter();
+    filterActivities();
+
+    // ═══════════════════════════════════════════════════════════
+    // Figma Capture Helper — 通过 URL 参数 ?state=xxx 控制显示
+    // ═══════════════════════════════════════════════════════════
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      const state = params.get('state');
+      if (!state) return;
+
+      // 小程序尺寸：375px 宽度，居中，带背景色
+      const style = document.createElement('style');
+      style.textContent = `
+        html { background: #e5e7eb; }
+        body { max-width: 375px !important; margin: 0 auto !important; background: #f3f4f6; position: relative; }
+      `;
+      document.head.appendChild(style);
+
+      const firstDevice = devices[0];
+      const firstActivity = activities[0];
+      const secondActivity = activities[1];
+
+      switch(state) {
+        // ── 基础页面 ──
+        case 'home':
+          goPage('home');
+          break;
+        case 'device':
+          goPage('device');
+          break;
+        case 'roster':
+          goPage('roster');
+          break;
+        case 'roster-expanded':
+          goPage('roster');
+          setTimeout(() => {
+            setRosterClassFilter('大班-1班');
+          }, 50);
+          break;
+        case 'detail':
+          selectedDevice = firstDevice;
+          renderDetail();
+          goPage('detail');
+          break;
+        case 'activity':
+          goPage('activity');
+          break;
+        case 'activity-detail-report':
+          selectedActivity = firstActivity;
+          renderActivityDetail();
+          goPage('activity-detail');
+          break;
+        case 'activity-detail-no-report':
+          selectedActivity = secondActivity;
+          renderActivityDetail();
+          goPage('activity-detail');
+          break;
+        case 'create-activity':
+          renderCreateActivityForm();
+          goPage('create-activity');
+          break;
+        case 'edit-activity':
+          selectedActivity = firstActivity;
+          renderEditActivityForm();
+          goPage('edit-activity');
+          break;
+        case 'activity-report':
+          goPage('activity-report');
+          break;
+        case 'student-report':
+          goPage('student-report');
+          break;
+        case 'report':
+          goPage('report');
+          break;
+
+        // ── 抽屉 ──
+        case 'device-drawer':
+          goPage('device');
+          selectedDevice = firstDevice;
+          document.getElementById('drawer-device-name').textContent = firstDevice.name;
+          document.getElementById('drawer').classList.add('show');
+          break;
+        case 'activity-drawer':
+          goPage('activity');
+          selectedActivity = firstActivity;
+          document.getElementById('activity-drawer-name').textContent = firstActivity.name;
+          document.getElementById('activity-drawer').classList.add('show');
+          break;
+        case 'badge-drawer-bound':
+          goPage('detail');
+          selectedDevice = firstDevice;
+          renderDetail();
+          document.getElementById('badge-drawer-name').textContent = '园徽-001';
+          document.getElementById('badge-btn-toggle').textContent = '禁用';
+          document.getElementById('badge-btn-toggle').style.display = 'block';
+          document.getElementById('badge-btn-unbind').style.display = 'block';
+          document.getElementById('badge-btn-bind').style.display = 'none';
+          document.getElementById('badge-drawer').classList.add('show');
+          break;
+        case 'badge-drawer-unbound':
+          goPage('detail');
+          selectedDevice = firstDevice;
+          { const d = rosterData.find(d => d.id === firstDevice.id); if (d && d.badges[0]) d.badges[0].holder = null; }
+          renderDetail();
+          document.getElementById('badge-drawer-name').textContent = '园徽-001';
+          document.getElementById('badge-btn-toggle').textContent = '禁用';
+          document.getElementById('badge-btn-toggle').style.display = 'block';
+          document.getElementById('badge-btn-unbind').style.display = 'none';
+          document.getElementById('badge-btn-bind').style.display = 'block';
+          document.getElementById('badge-drawer').classList.add('show');
+          break;
+
+        // ── 弹窗 ──
+        case 'class-modal':
+          goPage('device');
+          selectedDevice = firstDevice;
+          openClassModal();
+          break;
+        case 'edit-modal':
+          goPage('device');
+          selectedDevice = firstDevice;
+          openEditModal();
+          break;
+        case 'delete-modal':
+          goPage('device');
+          openDeleteModal();
+          break;
+        case 'activity-guide-modal':
+          goPage('activity');
+          document.getElementById('activity-guide-modal').classList.add('show');
+          break;
+        case 'activity-publish-modal':
+          goPage('create-activity');
+          renderCreateActivityForm();
+          createFormData.name = '测试活动';
+          createFormData.startTime = '2026-06-02T10:00';
+          createFormData.duration = 30;
+          createFormData.useDevice = firstDevice.name;
+          openPublishModal();
+          break;
+        case 'student-select-modal':
+          goPage('detail');
+          selectedDevice = firstDevice;
+          { const d = rosterData.find(d => d.id === firstDevice.id); if (d && d.badges[0]) d.badges[0].holder = null; }
+          renderDetail();
+          selectedBadgeInfo = { deviceId: firstDevice.id, badgeNo: '001' };
+          document.getElementById('bind-badge-name').textContent = '园徽-001';
+          document.getElementById('confirm-student-btn').disabled = true;
+          const listContainer = document.getElementById('student-select-list');
+          const emptyTip = document.getElementById('student-select-empty');
+          const unboundStudents = getUnboundStudents(firstDevice.id);
+          if (!unboundStudents.length) {
+            listContainer.innerHTML = '';
+            emptyTip.classList.remove('hidden');
+          } else {
+            emptyTip.classList.add('hidden');
+            listContainer.innerHTML = unboundStudents.map(name => `
+              <div id="student-opt-${name}" class="btn-press flex items-center justify-between px-4 py-3 border-b border-gray-100 last:border-b-0 cursor-pointer">
+                <span class="text-base text-gray-900">${name}</span>
+                <svg id="student-check-${name}" class="w-5 h-5 text-blue-500 opacity-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+              </div>
+            `).join('');
+          }
+          document.getElementById('student-select-modal').classList.add('show');
+          break;
+        case 'toast':
+          goPage('home');
+          setTimeout(() => showToast('操作成功'), 100);
+          break;
+      }
+    })();
+  </script>
+
+</body>
+</html>

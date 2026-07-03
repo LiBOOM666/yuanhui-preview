@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>智能园徽 · 手机预览</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+      overflow: hidden;
+    }
+    body {
+      background: linear-gradient(135deg, #e0e7ff 0%, #f3e8ff 50%, #fce7f3 100%);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 顶部工具栏 */
+    .toolbar {
+      flex-shrink: 0;
+      height: 64px;
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.5rem;
+      gap: 1rem;
+      z-index: 100;
+    }
+    .toolbar-left {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .toolbar h1 {
+      margin: 0;
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: #111827;
+      white-space: nowrap;
+    }
+    .page-select {
+      min-width: 180px;
+      padding: 0.5rem 2rem 0.5rem 0.75rem;
+      border: 1px solid #d1d5db;
+      border-radius: 0.625rem;
+      background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236B7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E") right 0.5rem center no-repeat;
+      background-size: 1.25rem;
+      font-size: 0.9375rem;
+      color: #374151;
+      appearance: none;
+      cursor: pointer;
+    }
+    .page-select:focus {
+      outline: none;
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+    }
+    .toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      border: 1px solid #d1d5db;
+      border-radius: 0.625rem;
+      background: #fff;
+      color: #4b5563;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .icon-btn:hover {
+      background: #f9fafb;
+      border-color: #9ca3af;
+      color: #111827;
+    }
+    .icon-btn:active {
+      transform: scale(0.96);
+    }
+    .scale-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: #fff;
+      border: 1px solid #d1d5db;
+      border-radius: 0.625rem;
+      padding: 0 0.75rem;
+      height: 38px;
+      font-size: 0.875rem;
+      color: #4b5563;
+    }
+    .scale-wrap input[type="range"] {
+      width: 90px;
+      cursor: pointer;
+    }
+
+    /* 中央舞台 */
+    .stage {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* 手机外框 */
+    .phone {
+      --frame-w: 402px;
+      --frame-h: 824px;
+      --screen-w: 375px;
+      --screen-h: 812px;
+      --bezel: 14px;
+
+      width: var(--frame-w);
+      height: var(--frame-h);
+      position: relative;
+      flex-shrink: 0;
+      transform-origin: center center;
+      transition: transform 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    .phone-frame {
+      position: absolute;
+      inset: 0;
+      background: #0f172a;
+      border-radius: 54px;
+      box-shadow:
+        0 0 0 2px #334155,
+        0 25px 70px -15px rgba(0,0,0,0.45),
+        0 50px 100px -20px rgba(0,0,0,0.25);
+      padding: var(--bezel);
+    }
+    /* 侧边按键 */
+    .phone-frame::before,
+    .phone-frame::after {
+      content: '';
+      position: absolute;
+      background: #1e293b;
+      border-radius: 2px;
+      z-index: -1;
+    }
+    .phone-frame::before {
+      width: 4px;
+      height: 72px;
+      left: -3px;
+      top: 118px;
+    }
+    .phone-frame::after {
+      width: 4px;
+      height: 96px;
+      right: -3px;
+      top: 156px;
+    }
+    .phone-screen {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: #fff;
+      border-radius: 46px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .safe-area-top {
+      flex-shrink: 0;
+      height: 44px;
+      background: #000;
+      position: relative;
+      z-index: 5;
+    }
+    .phone-notch {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 124px;
+      height: 32px;
+      background: #000;
+      border-radius: 18px;
+      z-index: 10;
+    }
+    .phone-notch::after {
+      content: '';
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 8px;
+      height: 8px;
+      background: #1f2937;
+      border-radius: 50%;
+      border: 1.5px solid #334155;
+    }
+    .phone-iframe {
+      width: 100%;
+      flex: 1;
+      border: none;
+      display: block;
+      background: #f3f4f6;
+    }
+    .phone-home-bar {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 134px;
+      height: 5px;
+      background: rgba(0,0,0,0.85);
+      border-radius: 3px;
+      z-index: 10;
+    }
+
+    @media (max-width: 640px) {
+      .toolbar {
+        height: auto;
+        padding: 0.75rem 1rem;
+        flex-wrap: wrap;
+      }
+      .toolbar h1 {
+        font-size: 1rem;
+      }
+      .page-select {
+        min-width: 140px;
+        font-size: 0.875rem;
+      }
+      .scale-wrap {
+        display: none;
+      }
+      .stage {
+        padding: 0.75rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="toolbar">
+    <div class="toolbar-left">
+      <h1>智能园徽 · 手机预览</h1>
+      <select id="pageSelect" class="page-select">
+        <option value="home">首页</option>
+        <option value="device">设备管理</option>
+        <option value="roster">设备名册</option>
+        <option value="detail">设备详情</option>
+        <option value="activity">活动列表</option>
+        <option value="activity-detail-report">活动详情（报告已生成）</option>
+        <option value="activity-detail-no-report">活动详情（报告生成中）</option>
+        <option value="create-activity">创建活动</option>
+        <option value="edit-activity">编辑活动</option>
+        <option value="report">学生报告</option>
+        <option value="device-drawer">设备操作抽屉</option>
+        <option value="activity-drawer">活动操作抽屉</option>
+        <option value="badge-drawer-bound">园徽抽屉（已绑定）</option>
+        <option value="class-modal">更换班级弹窗</option>
+        <option value="edit-modal">编辑设备弹窗</option>
+        <option value="delete-modal">删除确认弹窗</option>
+        <option value="activity-guide-modal">创建活动引导</option>
+        <option value="activity-publish-modal">发布进度弹窗</option>
+        <option value="student-select-modal">学生选择弹窗</option>
+        <option value="toast">Toast 提示</option>
+      </select>
+    </div>
+    <div class="toolbar-right">
+      <div class="scale-wrap">
+        <span>缩放</span>
+        <input id="scaleRange" type="range" min="50" max="100" value="85">
+        <span id="scaleValue">85%</span>
+      </div>
+      <button id="refreshBtn" class="icon-btn" title="刷新当前页面">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+          <path d="M23 4v6h-6M1 20v-6h6"/>
+          <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <div class="phone" id="phone" data-scale="0.85">
+      <div class="phone-frame">
+        <div class="phone-screen">
+          <div class="safe-area-top"></div>
+          <div class="phone-notch"></div>
+          <iframe id="previewFrame" class="phone-iframe" src="./index-mobile.html?state=home" title="智能园徽手机预览"></iframe>
+          <div class="phone-home-bar"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const frame = document.getElementById('previewFrame');
+    const pageSelect = document.getElementById('pageSelect');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const phone = document.getElementById('phone');
+    const scaleRange = document.getElementById('scaleRange');
+    const scaleValue = document.getElementById('scaleValue');
+
+    function loadState(state) {
+      frame.src = './index-mobile.html?state=' + encodeURIComponent(state);
+    }
+
+    pageSelect.addEventListener('change', (e) => {
+      loadState(e.target.value);
+    });
+
+    refreshBtn.addEventListener('click', () => {
+      frame.contentWindow.location.reload();
+    });
+
+    function applyScale() {
+      const val = scaleRange.value;
+      const scale = val / 100;
+      scaleValue.textContent = val + '%';
+      phone.style.transform = 'scale(' + scale + ')';
+    }
+    scaleRange.addEventListener('input', applyScale);
+    applyScale();
+
+    // 根据窗口高度自动调整初始缩放，避免大屏溢出
+    function fitByHeight() {
+      const availableH = window.innerHeight - 64; // 仅减去工具栏高度
+      const phoneH = 824;
+      const naturalScale = Math.min(1, availableH / phoneH);
+      // 保证不低于 50%
+      const finalScale = Math.max(0.5, naturalScale);
+      const percent = Math.round(finalScale * 100);
+      scaleRange.value = percent;
+      applyScale();
+    }
+    window.addEventListener('resize', fitByHeight);
+    fitByHeight();
+  </script>
+
+</body>
+</html>
